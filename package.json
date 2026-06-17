@@ -1,0 +1,44 @@
+{
+  "name": "codex-quota",
+  "version": "0.1.0",
+  "description": "Unofficial local Electron tray app for viewing Codex quota from an authenticated ChatGPT web session.",
+  "license": "MIT",
+  "author": "Sanjeever",
+  "type": "module",
+  "main": "out/main/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "predev": "pnpm generate:icons",
+    "dev": "electron-vite dev",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "build": "pnpm generate:icons && electron-vite build",
+    "dist": "pnpm build && electron-builder",
+    "dist:win": "pnpm build && electron-builder --win",
+    "dist:mac": "pnpm build && electron-builder --mac"
+  },
+  "dependencies": {
+    "electron-store": "^10.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.25.64"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@types/node": "^22.15.32",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.5.2",
+    "electron": "^35.5.1",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^3.1.0",
+    "eslint": "^9.29.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.34.1",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.3"
+  }
+}

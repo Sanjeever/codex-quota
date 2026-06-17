@@ -1,0 +1,25 @@
+appId: local.codex-quota.app
+productName: Codex Quota
+copyright: Copyright © 2026 Codex Quota contributors
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+extraResources:
+  - from: build/assets
+    to: assets
+win:
+  icon: build/assets/app.ico
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+mac:
+  icon: build/assets/app.icns
+  category: public.app-category.utilities
+  target:
+    - dmg
+    - zip
