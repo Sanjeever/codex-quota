@@ -284,6 +284,7 @@ function openLoginWindow(reason: 'auth' | 'user' = 'auth'): void {
     height: 820,
     title: `${APP_NAME} - ChatGPT`,
     icon: appIconPath(),
+    autoHideMenuBar: true,
     show: true,
     webPreferences: {
       partition: CHATGPT_PARTITION,
@@ -328,6 +329,7 @@ function getHiddenWindow(): BrowserWindow {
   hiddenWindow = new BrowserWindow({
     width: 800,
     height: 600,
+    autoHideMenuBar: true,
     show: false,
     webPreferences: {
       partition: CHATGPT_PARTITION,
@@ -718,6 +720,7 @@ function openDebugWindow(): void {
     minHeight: 560,
     title: `${APP_NAME} - Debug details`,
     icon: appIconPath(),
+    autoHideMenuBar: true,
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -809,6 +812,7 @@ if (!gotLock) {
 
   void app.whenReady().then(() => {
     app.setName(APP_NAME);
+    Menu.setApplicationMenu(null);
     app.setLoginItemSettings({ openAtLogin: state.launchAtLogin });
     createTray();
     setupRefreshTimer();
