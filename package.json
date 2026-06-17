@@ -1,6 +1,6 @@
 {
   "name": "codex-quota",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Unofficial local Electron tray app for viewing Codex quota from an authenticated ChatGPT web session.",
   "license": "MIT",
   "author": "Sanjeever",
