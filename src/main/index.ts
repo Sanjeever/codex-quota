@@ -675,7 +675,7 @@ async function refreshUsage(_source: 'startup' | 'timer' | 'manual'): Promise<vo
 
     setState({
       status,
-      lastError: safeError(status, error instanceof Error ? error.message : String(error)),
+      lastError: safeError(status, `${_source} refresh failed: ${error instanceof Error ? error.message : String(error)}`),
       stale: Boolean(state.usage),
       isRefreshing: false
     });
