@@ -189,13 +189,41 @@ pub fn allowed_auth_url(url: &Url) -> bool {
 }
 
 fn allow_local_debug_navigation(app: &AppHandle, url: &Url) -> bool {
-    if url.scheme() == "tauri"
-        || (url.scheme() == "https" && url.host_str() == Some("tauri.localhost"))
-        || (cfg!(dev) && url.host_str() == Some("127.0.0.1"))
-    {
+    if is_local_debug_url(url) {
         return true;
     }
 
     let _ = app.opener().open_url(url.as_str(), None::<&str>);
     false
+}
+
+fn is_local_debug_url(url: &Url) -> bool {
+    url.scheme() == "tauri"
+        || (matches!(url.scheme(), "http" | "https")
+            && url.host_str() == Some("tauri.localhost"))
+        || (cfg!(dev) && url.host_str() == Some("127.0.0.1"))
+}
+
+#[cfg(test)]
+mod tests {
+    use tauri::Url;
+
+    use super::is_local_debug_url;
+
+    #[test]
+    fn debug_window_allows_tauri_localhost_for_windows_webview() {
+        assert!(is_local_debug_url(
+            &Url::parse("http://tauri.localhost/index.html").unwrap()
+        ));
+        assert!(is_local_debug_url(
+            &Url::parse("https://tauri.localhost/index.html").unwrap()
+        ));
+    }
+
+    #[test]
+    fn debug_window_rejects_external_urls() {
+        assert!(!is_local_debug_url(
+            &Url::parse("https://example.com/").unwrap()
+        ));
+    }
 }
