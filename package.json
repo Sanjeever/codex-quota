@@ -10,6 +10,7 @@
   },
   "scripts": {
     "generate:icons": "node scripts/generate-icons.mjs",
+    "release:bump": "node scripts/bump-version.mjs",
     "dev": "pnpm generate:icons && tauri dev",
     "tauri": "tauri",
     "lint": "eslint .",

@@ -82,9 +82,15 @@ Build outputs are unsigned. Windows, macOS Gatekeeper, or other security tools m
 The release workflow runs only for version tags:
 
 ```bash
+pnpm release:bump 1.2.0
+git add package.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json
+git commit -m "chore(release): 1.2.0"
 git tag v1.2.0
+git push origin main
 git push origin v1.2.0
 ```
+
+`pnpm release:bump <version>` updates all project version files together. Release commits should always use the exact format `chore(release): <version>`, for example `chore(release): 1.2.0`.
 
 The workflow installs pnpm with Node 20, installs Rust stable, runs `pnpm lint` and `pnpm test`, then uses the official Tauri GitHub Action to build and attach release artifacts for Windows and macOS.
 

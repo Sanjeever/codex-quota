@@ -25,6 +25,7 @@ pnpm build
 pnpm dist
 pnpm dist:win
 pnpm dist:mac
+pnpm release:bump <version>
 ```
 
 ## Important Files
@@ -42,6 +43,7 @@ pnpm dist:mac
 - `src-tauri/capabilities/debug.json`: local Debug window command/event capability.
 - `src/renderer/src/main.tsx`: Debug details React window.
 - `src/shared/types.ts`: renderer-only TypeScript types.
+- `scripts/bump-version.mjs`: release version bump script for all version files.
 - `scripts/generate-icons.mjs`: generated original app/tray assets and Tauri icons.
 - `build/icon-source/codex-quota.svg`: original vector icon source.
 - `.github/workflows/build-release.yml`: tag-triggered Tauri release build.
@@ -153,3 +155,7 @@ Status classification:
 - GitHub Actions release workflow runs only on `v*` tag push.
 - Release matrix includes only `windows-latest` and `macos-latest`.
 - Release artifacts are Windows NSIS `.exe`, macOS `.dmg`, and macOS app bundle artifacts.
+- Use `pnpm release:bump <version>` to update every version file before a release.
+- Release commits must use the exact format `chore(release): <version>`, for example `chore(release): 1.1.4`.
+- To release, commit the bump, tag `v<version>`, push `main`, then push the tag.
+- Do not wait for GitHub Actions to finish after pushing the release tag; report that the workflow was triggered and stop.
