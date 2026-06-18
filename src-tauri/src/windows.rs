@@ -189,7 +189,10 @@ pub fn allowed_auth_url(url: &Url) -> bool {
 }
 
 fn allow_local_debug_navigation(app: &AppHandle, url: &Url) -> bool {
-    if url.scheme() == "tauri" || (cfg!(dev) && url.host_str() == Some("127.0.0.1")) {
+    if url.scheme() == "tauri"
+        || (url.scheme() == "https" && url.host_str() == Some("tauri.localhost"))
+        || (cfg!(dev) && url.host_str() == Some("127.0.0.1"))
+    {
         return true;
     }
 

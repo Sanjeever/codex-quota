@@ -345,34 +345,56 @@ fn tooltip_text(app: &AppHandle) -> String {
 
 fn windows_tooltip_text(app: &AppHandle) -> String {
     let state = crate::state_snapshot(app);
-    let state_text = format!(
-        "{}{}{}",
-        state.status.as_str(),
-        if state.stale { " stale" } else { "" },
-        if state.is_refreshing { " refreshing" } else { "" }
-    );
-    let mut lines = vec![format!("{APP_NAME} {state_text}")];
+    let mut state_text = format!("Codex {}", compact_status_text(&state.status));
+    if state.stale {
+        state_text.push_str(" S");
+    }
+    if state.is_refreshing {
+        state_text.push_str(" R");
+    }
+    let mut lines = vec![state_text];
 
     if let Some(usage) = &state.usage {
         lines.push(format!(
-            "5h {}, reset {}",
+            "5h {} r {}",
             format_percent(usage.rate_limit.primary_window.left_percent),
-            compact_reset_text(&usage.rate_limit.primary_window)
+            windows_reset_text(&usage.rate_limit.primary_window)
         ));
         lines.push(format!(
-            "W {}, reset {}",
+            "W {} r {}",
             format_percent(usage.rate_limit.secondary_window.left_percent),
-            compact_reset_text(&usage.rate_limit.secondary_window)
+            windows_reset_text(&usage.rate_limit.secondary_window)
         ));
     } else if let Some(error) = &state.last_error {
         lines.push(format!("Error {}", error.status.as_str()));
     }
 
     lines.push(format!(
-        "Updated {}",
-        format_compact_last_updated(state.last_updated_at.as_deref())
+        "Upd {}",
+        windows_last_updated_text(state.last_updated_at.as_deref())
     ));
     lines.join("\n")
+}
+
+fn compact_status_text(status: &AppStatus) -> &'static str {
+    match status {
+        AppStatus::Ok => "OK",
+        AppStatus::LowQuota => "Low",
+        AppStatus::CriticalQuota => "Critical",
+        AppStatus::AuthRequired => "Auth",
+        AppStatus::RequestTimeout => "Timeout",
+        AppStatus::Offline => "Offline",
+        AppStatus::ApiError => "API error",
+        AppStatus::ParseError => "Parse error",
+    }
+}
+
+fn windows_reset_text(window: &crate::usage::UsageWindow) -> String {
+    compact_reset_text(window).replace(' ', "")
+}
+
+fn windows_last_updated_text(iso_string: Option<&str>) -> String {
+    format_compact_last_updated(iso_string).replace(',', "")
 }
 
 fn status_line(state: &crate::app_state::RuntimeState) -> String {
