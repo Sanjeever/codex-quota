@@ -34,6 +34,14 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -43,28 +51,12 @@ jobs:
       - name: Test
         run: pnpm test
 
-      - name: Build
-        run: pnpm build
-
-      - name: Package Windows
-        if: runner.os == 'Windows'
-        run: pnpm exec electron-builder --win --publish never
-
-      - name: Package macOS
-        if: runner.os == 'macOS'
-        run: pnpm exec electron-builder --mac --publish never
-
-      - name: Upload Windows release artifacts
-        if: runner.os == 'Windows'
-        uses: softprops/action-gh-release@v2
+      - name: Build and upload Tauri artifacts
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: |
-            release/*.exe
-
-      - name: Upload macOS release artifacts
-        if: runner.os == 'macOS'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            release/*.dmg
-            release/*.zip
+          tagName: ${{ github.ref_name }}
+          releaseName: Codex Quota ${{ github.ref_name }}
+          releaseDraft: false
+          prerelease: false

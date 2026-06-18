@@ -14,6 +14,7 @@ export type UsageWindow = {
   limitWindowSeconds: number;
   resetAfterSeconds: number;
   resetAt: number;
+  resetText: string;
 };
 
 export type CodexUsage = {
@@ -51,10 +52,13 @@ export type DebugState = {
   status: AppStatus;
   usage: CodexUsage | null;
   usageComparison: UsageComparison | null;
+  usageComparisonText: string | null;
   lastUpdatedAt: string | null;
+  lastUpdatedText: string;
   lastError: SanitizedError | null;
   stale: boolean;
   refreshIntervalMinutes: number;
   launchAtLogin: boolean;
   isRefreshing: boolean;
+  redactedJson: string;
 };

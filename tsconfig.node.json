@@ -6,15 +6,12 @@
     "moduleResolution": "Bundler",
     "target": "ES2022",
     "lib": ["ES2022", "DOM"],
-    "types": ["node", "electron"],
+    "types": ["node"],
     "outDir": "dist-types/node",
     "skipLibCheck": true
   },
   "include": [
-    "electron.vite.config.ts",
-    "src/main/**/*.ts",
-    "src/preload/**/*.ts",
-    "src/shared/**/*.ts",
-    "tests/**/*.ts"
+    "vite.config.ts",
+    "scripts/**/*.mjs"
   ]
 }

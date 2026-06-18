@@ -1,40 +1,41 @@
 {
   "name": "codex-quota",
   "version": "1.1.2",
-  "description": "Unofficial local Electron tray app for viewing Codex quota from an authenticated ChatGPT web session.",
+  "description": "Unofficial local Tauri tray app for viewing Codex quota from an authenticated ChatGPT web session.",
   "license": "MIT",
   "author": "Sanjeever",
   "type": "module",
-  "main": "out/main/index.js",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "generate:icons": "node scripts/generate-icons.mjs",
-    "predev": "pnpm generate:icons",
-    "dev": "electron-vite dev",
+    "dev": "pnpm generate:icons && tauri dev",
+    "tauri": "tauri",
     "lint": "eslint .",
-    "test": "vitest run",
-    "build": "pnpm generate:icons && electron-vite build",
-    "dist": "pnpm build && electron-builder",
-    "dist:win": "pnpm build && electron-builder --win",
-    "dist:mac": "pnpm build && electron-builder --mac"
+    "test": "vitest run --passWithNoTests && cargo test --manifest-path src-tauri/Cargo.toml",
+    "build": "pnpm generate:icons && vite build",
+    "dist": "pnpm generate:icons && tauri build",
+    "dist:win": "pnpm generate:icons && tauri build",
+    "dist:mac": "pnpm generate:icons && tauri build"
   },
   "dependencies": {
-    "electron-store": "^10.1.0",
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-autostart": "^2.5.1",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
+    "@tauri-apps/plugin-dialog": "^2.7.1",
+    "@tauri-apps/plugin-opener": "^2.5.4",
+    "@tauri-apps/plugin-store": "^2.4.3",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "zod": "^3.25.64"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.2",
     "@eslint/js": "^9.29.0",
     "@types/node": "^22.15.32",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.5.2",
-    "electron": "^35.5.1",
-    "electron-builder": "25.1.8",
-    "electron-vite": "^3.1.0",
     "eslint": "^9.29.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.34.1",

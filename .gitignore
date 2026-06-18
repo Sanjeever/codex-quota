@@ -1,7 +1,9 @@
 node_modules/
 out/
+dist/
 dist-types/
 release/
+src-tauri/target/
 .electron-cache/
 *.log
 .DS_Store

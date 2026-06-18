@@ -1,0 +1,1 @@
+{"debug":{"identifier":"debug","description":"Allows the local Debug details window to call app commands and listen for state changes.","local":true,"windows":["debug"],"permissions":["core:default","core:event:allow-listen","core:event:allow-unlisten"]}}

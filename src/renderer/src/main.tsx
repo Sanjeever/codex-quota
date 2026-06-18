@@ -1,22 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { toDebugJson } from '../../shared/debug';
-import { formatUsageComparison } from '../../shared/summary';
-import { formatLastUpdated, formatPrimaryReset, formatWeeklyReset } from '../../shared/time';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import type { CodexUsage, DebugState, UsageWindow } from '../../shared/types';
 import './styles.css';
+
+const DEBUG_STATE_CHANGED = 'debug_state_changed';
 
 function emptyState(): DebugState {
   return {
     status: 'Auth required',
     usage: null,
     usageComparison: null,
+    usageComparisonText: null,
     lastUpdatedAt: null,
+    lastUpdatedText: 'Never',
     lastError: null,
     stale: false,
     refreshIntervalMinutes: 5,
     launchAtLogin: false,
-    isRefreshing: false
+    isRefreshing: false,
+    redactedJson: '{}'
   };
 }
 
@@ -30,15 +34,13 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 function WindowFields({ label, window }: { label: string; window: UsageWindow }) {
-  const resetText = label === 'Primary window' ? formatPrimaryReset(window.resetAt) : formatWeeklyReset(window.resetAt);
-
   return (
     <section className="panel">
       <h2>{label}</h2>
       <dl>
         <Field label="used_percent" value={`${window.usedPercent}%`} />
         <Field label="left_percent" value={`${window.leftPercent}%`} />
-        <Field label="reset_at" value={`${window.resetAt} (${resetText})`} />
+        <Field label="reset_at" value={`${window.resetAt} (${window.resetText})`} />
         <Field label="reset_after_seconds" value={window.resetAfterSeconds} />
         <Field label="limit_window_seconds" value={window.limitWindowSeconds} />
       </dl>
@@ -84,16 +86,17 @@ function UsageDetails({ usage }: { usage: CodexUsage | null }) {
 function App() {
   const [state, setState] = useState<DebugState>(emptyState);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
-  const api = window.codexQuota;
 
   useEffect(() => {
-    if (!api) {
-      return undefined;
-    }
-
-    void api.getDebugState().then(setState);
-    return api.onStateChanged(setState);
-  }, [api]);
+    let unlisten: (() => void) | null = null;
+    void invoke<DebugState>('get_debug_state').then(setState);
+    void listen<DebugState>(DEBUG_STATE_CHANGED, (event) => setState(event.payload)).then((cleanup) => {
+      unlisten = cleanup;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, []);
 
   const statusClass = useMemo(() => {
     if (state.status === 'OK') return 'status-ok';
@@ -103,14 +106,12 @@ function App() {
   }, [state.status]);
 
   async function refreshNow() {
-    if (!api) return;
-    const next = await api.refreshNow();
+    const next = await invoke<DebugState>('refresh_now');
     setState(next);
   }
 
   async function copyJson() {
-    if (!api) return;
-    await api.copyJson();
+    await invoke('copy_json');
     setCopyState('copied');
     window.setTimeout(() => setCopyState('idle'), 1200);
   }
@@ -129,27 +130,20 @@ function App() {
         <button type="button" onClick={() => void copyJson()}>
           {copyState === 'copied' ? 'Copied JSON' : 'Copy JSON'}
         </button>
-        <button type="button" onClick={() => void refreshNow()} disabled={state.isRefreshing || !api}>
+        <button type="button" onClick={() => void refreshNow()} disabled={state.isRefreshing}>
           {state.isRefreshing ? 'Refreshing' : 'Refresh now'}
         </button>
       </div>
-
-      {!api ? (
-        <section className="panel error-panel">
-          <h2>Debug IPC unavailable</h2>
-          <p>The preload script did not expose the local debug API. Restart the app after rebuilding the main process.</p>
-        </section>
-      ) : null}
 
       <section className="panel">
         <h2>Runtime</h2>
         <dl>
           <Field label="status" value={state.status} />
-          <Field label="last_updated" value={formatLastUpdated(state.lastUpdatedAt)} />
+          <Field label="last_updated" value={state.lastUpdatedText} />
           <Field label="showing_stale_data" value={String(state.stale)} />
           <Field label="refresh_interval_minutes" value={state.refreshIntervalMinutes} />
           <Field label="launch_at_login" value={String(state.launchAtLogin)} />
-          <Field label="usage_change" value={state.usageComparison ? formatUsageComparison(state.usageComparison) : 'None'} />
+          <Field label="usage_change" value={state.usageComparisonText ?? 'None'} />
           <Field label="last_sanitized_error" value={state.lastError ? `${state.lastError.status}: ${state.lastError.message}` : 'None'} />
         </dl>
       </section>
@@ -158,7 +152,7 @@ function App() {
 
       <section className="json-panel">
         <h2>Sanitized JSON</h2>
-        <pre>{toDebugJson(state)}</pre>
+        <pre>{state.redactedJson}</pre>
       </section>
     </main>
   );

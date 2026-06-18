@@ -2,14 +2,17 @@
 
 ## Project
 
-Codex Quota is an unofficial local Electron tray/menu bar app for viewing Codex quota from an authenticated ChatGPT Web session.
+Codex Quota is an unofficial local Tauri v2 tray/menu bar app for viewing Codex quota from an authenticated ChatGPT Web session.
 
 - Repository: `codex-quota`
 - App name: `Codex Quota`
 - UI language: English
-- Stack: Electron, TypeScript, electron-vite, React, pnpm
+- Stack: Tauri v2, Rust, TypeScript, Vite, React, pnpm
 - Package manager: pnpm only
 - Node.js: >= 20
+- Supported OS targets: Windows and macOS only
+
+The Tauri version is a new runtime. Do not read, migrate, convert, or delete any old Electron data, including Electron sessions, cookies, `electron-store`, cache, last snapshots, or settings. First Tauri launch should require ChatGPT login again.
 
 ## Common Commands
 
@@ -26,36 +29,42 @@ pnpm dist:mac
 
 ## Important Files
 
-- `src/main/index.ts`: Electron main process, tray/menu, windows, refresh flow, session handling.
-- `src/main/chatgpt.ts`: ChatGPT page-runtime session probe and usage fetch.
-- `src/main/navigation.ts`: navigation restrictions for auth and local windows.
-- `src/main/constants.ts`: main-process constants and refresh interval types.
-- `src/preload/index.ts`: Minimal IPC API exposed to local renderer windows.
+- `src-tauri/src/lib.rs`: Tauri builder, plugins, commands, refresh flow, timers, state updates.
+- `src-tauri/src/app_state.rs`: runtime constants and app state.
+- `src-tauri/src/chatgpt.rs`: ChatGPT WebView session probe and usage fetch via page `eval`.
+- `src-tauri/src/windows.rs`: debug/auth/hidden WebView windows and navigation restrictions.
+- `src-tauri/src/tray.rs`: tray icon, macOS title, Windows tooltip, tray menu actions.
+- `src-tauri/src/usage.rs`: usage response parsing, mapping, status classification.
+- `src-tauri/src/time.rs`: fixed English reset and last-updated formatting.
+- `src-tauri/src/summary.rs`: copied quota summary and in-memory usage change formatting.
+- `src-tauri/src/debug.rs`: Debug details payload and copied JSON redaction.
+- `src-tauri/src/tests.rs`: parser/status/time/summary/redaction unit tests.
+- `src-tauri/capabilities/debug.json`: local Debug window command/event capability.
 - `src/renderer/src/main.tsx`: Debug details React window.
-- `src/shared/usage.ts`: zod parser, API response mapping, status classification.
-- `src/shared/time.ts`: fixed English locale reset time formatting.
-- `src/shared/summary.ts`: copied quota summary and in-memory usage change formatting.
-- `src/shared/debug.ts`: copied/debug JSON redaction helpers.
-- `tests/usage.test.ts`: parser/status/time unit tests.
-- `scripts/generate-icons.mjs`: generated original app/tray icon assets.
+- `src/shared/types.ts`: renderer-only TypeScript types.
+- `scripts/generate-icons.mjs`: generated original app/tray assets and Tauri icons.
 - `build/icon-source/codex-quota.svg`: original vector icon source.
-- `.github/workflows/build-release.yml`: tag-triggered release build.
+- `.github/workflows/build-release.yml`: tag-triggered Tauri release build.
 
 ## Security Boundaries
 
 - Do not ask users to paste cookies, bearer tokens, curl commands, API keys, or login credentials.
-- Do not show tokens, raw cookies, Authorization headers, or raw request headers in Debug details.
+- Do not show, persist, or log tokens, raw cookies, Authorization headers, raw request headers, or raw responses.
 - Do not include account identifiers in copied summary text.
 - `Copy JSON` must redact `userId` and `accountId`, and mask email addresses.
 - Do not write persistent log files containing request data.
-- ChatGPT login state lives in Electron session storage using `persist:codex-quota-chatgpt`.
-- `electron-store` is only for app settings and last successful sanitized usage snapshot.
-- Renderer windows must keep:
-  - `nodeIntegration: false`
-  - `contextIsolation: true`
-  - `sandbox: true`
-- Only local app renderer windows use preload.
-- ChatGPT/auth windows must not have Node permissions.
+- ChatGPT login state lives only in Tauri WebView storage for the Tauri app.
+- Persist only Tauri app settings and last successful sanitized usage snapshot:
+  - `refreshIntervalMinutes`
+  - `launchAtLogin`
+  - `lastKnownUsage`
+  - `lastUpdatedAt`
+- Remote ChatGPT windows must not receive Tauri command/plugin permissions.
+- The local Debug window gets only the commands/events it needs:
+  - `get_debug_state`
+  - `refresh_now`
+  - `copy_json`
+  - `debug_state_changed`
 
 ## Current Auth Implementation
 
@@ -65,14 +74,25 @@ The app opens:
 https://chatgpt.com/codex/cloud/settings/analytics
 ```
 
+Rust creates or reuses two remote ChatGPT WebView windows:
+
+- `auth`: visible, used for login and user-selected Analytics.
+- `chatgpt-hidden`: hidden, used for background refresh.
+
 After the user logs in, refresh runs inside the authenticated ChatGPT page runtime:
 
 1. Ensure the page is on `/codex/cloud/settings/analytics`.
 2. Read the current ChatGPT session via `/api/auth/session`.
 3. Use the runtime `accessToken` only for the current request.
 4. Fetch `/backend-api/wham/usage` with `Authorization: Bearer <runtime token>`.
+5. Return only sanitized result fields to Rust, such as `ok`, `status`, `data`, `text`, `finalUrl`, `authenticatedSession`, and `parseError`.
 
-The token is not persisted to `electron-store`, not displayed in Debug details, and not logged.
+The token is not returned to Rust except as a boolean probe (`hasAccessToken`), not persisted, not displayed, and not logged.
+
+Navigation restrictions:
+
+- Auth/hidden windows allow HTTPS navigation only to `chatgpt.com`, `chat.openai.com`, `openai.com`, and `*.openai.com`.
+- Debug local external links open in the system browser.
 
 ## Product Behavior
 
@@ -88,17 +108,17 @@ The token is not persisted to `electron-store`, not displayed in Debug details, 
 - Do not add dashboard or launcher behavior by default. Keep the product tray-first and low-interruption.
 - No floating desktop window.
 - Normal and error tray icons only.
-- Login/analytics window is visible only when authentication is needed or the user chooses `Open analytics`.
+- Login/analytics window is visible only when authentication is needed or the user chooses `Analytics`.
 - Auth-triggered login window auto-closes after a successful usage refresh.
-- User-triggered `Open analytics` window stays open.
+- User-triggered `Analytics` window stays open.
 - Debug details is a local read-only window with `Copy JSON` and `Refresh now`.
 - Debug details may show local account identifiers in the window, but copied JSON must be redacted.
 - Closing windows does not quit the app; only `Quit` exits.
-- Use `app.requestSingleInstanceLock()`.
+- Use `tauri-plugin-single-instance`; second instance should focus/open Debug details.
 
 ## Usage Parsing
 
-The usage endpoint response is validated with zod and unknown fields are allowed.
+The usage endpoint response is validated in Rust with serde/manual checks and unknown fields are allowed.
 
 Internal model:
 
@@ -116,14 +136,14 @@ Status classification:
 - `Request timeout`: refresh exceeded 30 seconds.
 - `Offline`: network failure.
 - `API error`: non-2xx except auth cases.
-- `Parse error`: invalid JSON or zod/schema failure.
+- `Parse error`: invalid JSON or schema failure.
 
 ## Testing Notes
 
 - Unit tests must not call ChatGPT.
 - Tests must not require real credentials.
-- Keep tests focused on parser, mapping, status classification, time formatting, summary formatting, redaction, and in-memory comparison.
-- If the real endpoint shape changes, add a unit test for the new schema detail before loosening validation.
+- Keep tests focused on parser, mapping, status classification, time formatting, summary formatting, redaction, HTTP status mapping, and in-memory comparison.
+- If the real endpoint shape changes, add a Rust unit test for the new schema detail before loosening validation.
 
 ## Release Notes
 
@@ -131,4 +151,5 @@ Status classification:
 - No auto-update.
 - No Apple notarization.
 - GitHub Actions release workflow runs only on `v*` tag push.
-- Release artifacts are Windows `.exe`, macOS `.dmg`, and macOS `.zip`.
+- Release matrix includes only `windows-latest` and `macos-latest`.
+- Release artifacts are Windows NSIS `.exe`, macOS `.dmg`, and macOS app bundle artifacts.

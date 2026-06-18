@@ -1,4 +1,4 @@
 allowBuilds:
-  electron: true
-  electron-winstaller: true
   esbuild: true
+minimumReleaseAgeExclude:
+  - '@tauri-apps/api@2.11.1'

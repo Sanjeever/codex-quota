@@ -6,7 +6,9 @@ import { deflateSync } from 'node:zlib';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'build', 'assets');
+const tauriIconDir = join(root, 'src-tauri', 'icons');
 mkdirSync(outDir, { recursive: true });
+mkdirSync(tauriIconDir, { recursive: true });
 
 const sourceSvg = readFileSync(join(root, 'build', 'icon-source', 'codex-quota.svg'), 'utf8');
 writeFileSync(join(outDir, 'codex-quota.svg'), sourceSvg);
@@ -152,3 +154,10 @@ writeFileSync(join(outDir, 'app.ico'), icoFromPngs([{ width: 256, height: 256, d
 writeFileSync(join(outDir, 'app.icns'), icnsFromPng(appPng1024));
 writeFileSync(join(outDir, 'tray-normal.png'), trayNormal);
 writeFileSync(join(outDir, 'tray-error.png'), trayError);
+
+writeFileSync(join(tauriIconDir, '32x32.png'), png(32, 32, iconDraw(false)));
+writeFileSync(join(tauriIconDir, '128x128.png'), png(128, 128, iconDraw(false)));
+writeFileSync(join(tauriIconDir, '128x128@2x.png'), appPng256);
+writeFileSync(join(tauriIconDir, 'icon.png'), appPng512);
+writeFileSync(join(tauriIconDir, 'icon.ico'), icoFromPngs([{ width: 256, height: 256, data: appPng256 }]));
+writeFileSync(join(tauriIconDir, 'icon.icns'), icnsFromPng(appPng1024));
