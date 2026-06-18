@@ -20,8 +20,8 @@ The access token is read from the already authenticated ChatGPT page runtime for
 ## Features
 
 - macOS menu bar title like `Codex 5h 96% | Weekly 36%`.
-- Windows system tray icon and tooltip, with quota details in the tray menu.
-- Reset times show both relative and absolute time, such as `in 2h 14m at 10:22`.
+- Windows system tray icon and compact tooltip, with quota details in the tray menu.
+- Tray menu uses compact reset times; `Copy summary` includes both relative and absolute time, such as `in 2h 14m at 10:22`.
 - Tray tooltip summarizes status, quota, reset times, stale state, and last update time.
 - `Copy summary` copies a short sanitized quota summary from the tray menu.
 - Persistent local ChatGPT session via Electron session storage.
@@ -104,7 +104,7 @@ Never paste tokens, cookies, raw request headers, or secrets into this app or in
 1. Run `pnpm dev`.
 2. Confirm the tray/menu appears immediately.
 3. If `Auth required` appears, sign in through the visible ChatGPT analytics window.
-4. Use `Refresh now` and confirm quota, account, plan, relative/absolute reset times, and stale/error state update in the tray menu.
+4. Use `Refresh now` and confirm quota, account, plan, compact reset times, and stale/error state update in the tray menu.
 5. Refresh a second time and confirm the in-memory quota change line appears when the quota values changed.
 6. Use `Copy summary` and confirm the copied text contains quota/status details but no account identifiers.
 7. Open `Debug details` and confirm local account details are visible in the window, while the JSON panel and `Copy JSON` output redact account identifiers and mask email addresses.

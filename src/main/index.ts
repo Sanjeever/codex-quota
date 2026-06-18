@@ -16,7 +16,7 @@ import { ZodError } from 'zod';
 import { classifyUsage, compareUsage, mapHttpStatusToAppStatus, parseUsageResponse } from '../shared/usage';
 import { formatCompactLastUpdated, formatLastUpdated, formatPrimaryReset, formatRelativeReset, formatResetWithRelative, formatWeeklyReset } from '../shared/time';
 import { toDebugJson } from '../shared/debug';
-import { buildUsageSummary, formatUsageComparison } from '../shared/summary';
+import { buildUsageSummary } from '../shared/summary';
 import type { AppStatus, CodexUsage, DebugState, SanitizedError } from '../shared/types';
 import { sleep, withTimeout } from './async';
 import { fetchUsageInSession } from './chatgpt';
@@ -114,8 +114,20 @@ function formatPercent(value: number): string {
   return `${Math.round(value)}%`;
 }
 
-function quotaLine(label: string, window: CodexUsage['rateLimit']['primaryWindow'], resetText: string): string {
-  return `${label}: ${formatPercent(window.leftPercent)} left, ${formatPercent(window.usedPercent)} used, reset ${resetText}`;
+function compactQuotaLine(label: string, window: CodexUsage['rateLimit']['primaryWindow']): string {
+  return `${label}: ${formatPercent(window.leftPercent)} left, reset ${compactResetText(window)}`;
+}
+
+function compactUsageComparison(): string | null {
+  if (!state.usageComparison) {
+    return null;
+  }
+
+  const primary = Math.round(state.usageComparison.primaryWindowLeftPercentDelta);
+  const weekly = Math.round(state.usageComparison.secondaryWindowLeftPercentDelta);
+  const primaryText = `${primary > 0 ? '+' : ''}${primary}%`;
+  const weeklyText = `${weekly > 0 ? '+' : ''}${weekly}%`;
+  return `Change: 5h ${primaryText}, W ${weeklyText}`;
 }
 
 function primaryResetText(window: CodexUsage['rateLimit']['primaryWindow']): string {
@@ -210,19 +222,20 @@ function rebuildTray(): void {
   }
 
   const usage = state.usage;
+  const changeLine = compactUsageComparison();
   const template: MenuItemConstructorOptions[] = [
     { label: APP_NAME, enabled: false },
     { label: `Status: ${state.status}${state.isRefreshing ? ' (refreshing)' : ''}`, enabled: false },
-    ...(usage?.email ? [{ label: `Account: ${usage.email}`, enabled: false }] : []),
+    ...(usage?.email ? [{ label: `Acct: ${usage.email}`, enabled: false }] : []),
     ...(usage?.planType ? [{ label: `Plan: ${usage.planType}`, enabled: false }] : []),
     ...(usage
       ? [
           {
-            label: quotaLine('5h quota', usage.rateLimit.primaryWindow, primaryResetText(usage.rateLimit.primaryWindow)),
+            label: compactQuotaLine('5h', usage.rateLimit.primaryWindow),
             enabled: false
           },
           {
-            label: quotaLine('Weekly quota', usage.rateLimit.secondaryWindow, weeklyResetText(usage.rateLimit.secondaryWindow)),
+            label: compactQuotaLine('Week', usage.rateLimit.secondaryWindow),
             enabled: false
           },
           {
@@ -231,17 +244,17 @@ function rebuildTray(): void {
           }
         ]
       : [{ label: 'Quota: Unknown', enabled: false }]),
-    ...(usage && state.usageComparison && !state.stale ? [{ label: formatUsageComparison(state.usageComparison), enabled: false }] : []),
-    { label: `Last updated: ${formatLastUpdated(state.lastUpdatedAt)}`, enabled: false },
+    ...(usage && changeLine && !state.stale ? [{ label: changeLine, enabled: false }] : []),
+    { label: `Updated: ${formatCompactLastUpdated(state.lastUpdatedAt)}`, enabled: false },
     ...(state.stale ? [{ label: staleLabel(), enabled: false }] : []),
     { type: 'separator' },
-    { label: 'Refresh now', click: () => void refreshUsage('manual') },
+    { label: 'Refresh', click: () => void refreshUsage('manual') },
     { label: 'Copy summary', click: () => clipboard.writeText(buildUsageSummary(getDebugState())) },
-    { label: 'Open analytics', click: () => openLoginWindow('user') },
-    { label: 'Debug details', click: () => openDebugWindow() },
+    { label: 'Analytics', click: () => openLoginWindow('user') },
+    { label: 'Debug', click: () => openDebugWindow() },
     { type: 'separator' },
     {
-      label: 'Refresh interval',
+      label: 'Interval',
       submenu: REFRESH_INTERVALS.map((minutes) => ({
         label: `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`,
         type: 'radio',
@@ -255,8 +268,8 @@ function rebuildTray(): void {
       checked: state.launchAtLogin,
       click: (item) => setLaunchAtLogin(item.checked)
     },
-    { label: 'Sign out / Reset ChatGPT session', click: () => void resetSession() },
-    { label: `About ${APP_NAME}`, click: () => showAbout() },
+    { label: 'Reset session', click: () => void resetSession() },
+    { label: 'About', click: () => showAbout() },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() }
   ];
