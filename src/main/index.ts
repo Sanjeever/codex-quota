@@ -8,7 +8,6 @@ import {
   type MenuItemConstructorOptions,
   nativeImage,
   session,
-  shell,
   Tray
 } from 'electron';
 import Store from 'electron-store';
@@ -18,18 +17,19 @@ import { classifyUsage, mapHttpStatusToAppStatus, parseUsageResponse } from '../
 import { formatLastUpdated, formatPrimaryReset, formatWeeklyReset } from '../shared/time';
 import { toDebugJson } from '../shared/debug';
 import type { AppStatus, CodexUsage, DebugState, SanitizedError } from '../shared/types';
-
-const APP_NAME = 'Codex Quota';
-const CHATGPT_PARTITION = 'persist:codex-quota-chatgpt';
-const ANALYTICS_URL = 'https://chatgpt.com/codex/cloud/settings/analytics';
-const ANALYTICS_PATH = '/codex/cloud/settings/analytics';
-const REFRESH_TIMEOUT_MS = 30_000;
-const CHATGPT_APP_READY_DELAY_MS = 4_000;
-const CHATGPT_SESSION_WAIT_MS = 20_000;
-const DEFAULT_REFRESH_INTERVAL_MINUTES = 5;
-const REFRESH_INTERVALS = [1, 5, 15, 30] as const;
-
-type RefreshIntervalMinutes = (typeof REFRESH_INTERVALS)[number];
+import { sleep, withTimeout } from './async';
+import { fetchUsageInSession } from './chatgpt';
+import {
+  ANALYTICS_URL,
+  APP_NAME,
+  CHATGPT_APP_READY_DELAY_MS,
+  CHATGPT_PARTITION,
+  DEFAULT_REFRESH_INTERVAL_MINUTES,
+  REFRESH_INTERVALS,
+  REFRESH_TIMEOUT_MS,
+  type RefreshIntervalMinutes
+} from './constants';
+import { restrictNavigation } from './navigation';
 
 type StoreShape = {
   refreshIntervalMinutes: RefreshIntervalMinutes;
@@ -48,6 +48,7 @@ let refreshTimer: NodeJS.Timeout | null = null;
 let loginRefreshTimer: NodeJS.Timeout | null = null;
 let pendingRefresh = false;
 let autoCloseLoginWindowAfterRefresh = false;
+let isQuitting = false;
 
 const store = new Store<StoreShape>({
   name: 'codex-quota',
@@ -82,12 +83,6 @@ function assetPath(fileName: string): string {
 
 function appIconPath(): string {
   return assetPath(process.platform === 'win32' ? 'app.ico' : 'app.png');
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }
 
 function isErrorStatus(status: AppStatus): boolean {
@@ -233,43 +228,6 @@ function setLaunchAtLogin(openAtLogin: boolean): void {
   setState({ launchAtLogin: openAtLogin });
 }
 
-function allowedAuthHost(hostname: string): boolean {
-  return (
-    hostname === 'chatgpt.com' ||
-    hostname === 'chat.openai.com' ||
-    hostname === 'openai.com' ||
-    hostname.endsWith('.openai.com')
-  );
-}
-
-function restrictNavigation(window: BrowserWindow, mode: 'auth' | 'local'): void {
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
-    return { action: 'deny' };
-  });
-
-  window.webContents.on('will-navigate', (event, url) => {
-    if (mode === 'local') {
-      event.preventDefault();
-      void shell.openExternal(url);
-      return;
-    }
-
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
-      event.preventDefault();
-      return;
-    }
-
-    if (parsed.protocol !== 'https:' || !allowedAuthHost(parsed.hostname)) {
-      event.preventDefault();
-      void shell.openExternal(url);
-    }
-  });
-}
-
 function openLoginWindow(reason: 'auth' | 'user' = 'auth'): void {
   autoCloseLoginWindowAfterRefresh = reason === 'auth';
 
@@ -346,72 +304,6 @@ function getHiddenWindow(): BrowserWindow {
   return hiddenWindow;
 }
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timeout: NodeJS.Timeout | null = null;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => reject(new Error('request_timeout')), timeoutMs);
-  });
-
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-  }
-}
-
-type FetchResult =
-  | { ok: true; status: number; data: unknown }
-  | { ok: false; status: number; text: string; parseError?: boolean; finalUrl?: string; authenticatedSession?: boolean };
-
-type AuthProbe = {
-  sessionStatus: number | null;
-  hasUser: boolean;
-  hasAccessToken: boolean;
-  pageReadyState: string;
-  pageTitle: string;
-  path: string;
-};
-
-function sanitizedUrlForDebug(url: string): string {
-  try {
-    const parsed = new URL(url);
-    return `${parsed.origin}${parsed.pathname}`;
-  } catch {
-    return 'Unknown';
-  }
-}
-
-async function fetchUsageInSession(): Promise<FetchResult> {
-  const window = await getUsageFetchWindow();
-  await ensureAnalyticsContext(window);
-
-  const loadedUrl = window.webContents.getURL();
-  const currentUrl = new URL(loadedUrl);
-  if (currentUrl.hostname !== 'chatgpt.com') {
-    return {
-      ok: false,
-      status: 401,
-      text: `ChatGPT authentication required. Final page: ${sanitizedUrlForDebug(loadedUrl)}`,
-      finalUrl: sanitizedUrlForDebug(loadedUrl)
-    };
-  }
-
-  const probe = await waitForChatGptSession(window);
-  if (!probe.hasUser) {
-    return {
-      ok: false,
-      status: 401,
-      text: `ChatGPT session was not available in Electron. Probe: ${formatAuthProbe(probe)}`,
-      finalUrl: sanitizedUrlForDebug(loadedUrl),
-      authenticatedSession: false
-    };
-  }
-
-  return await executeUsageFetch(window);
-}
-
 async function getUsageFetchWindow(): Promise<BrowserWindow> {
   if (loginWindow && !loginWindow.isDestroyed()) {
     try {
@@ -430,188 +322,6 @@ async function getUsageFetchWindow(): Promise<BrowserWindow> {
   return window;
 }
 
-async function ensureAnalyticsContext(window: BrowserWindow): Promise<void> {
-  const currentUrl = window.webContents.getURL();
-  let parsed: URL;
-  try {
-    parsed = new URL(currentUrl);
-  } catch {
-    await withTimeout(window.loadURL(ANALYTICS_URL), REFRESH_TIMEOUT_MS);
-    await sleep(CHATGPT_APP_READY_DELAY_MS);
-    return;
-  }
-
-  if (parsed.hostname !== 'chatgpt.com' || parsed.pathname !== ANALYTICS_PATH) {
-    await withTimeout(window.loadURL(ANALYTICS_URL), REFRESH_TIMEOUT_MS);
-    await sleep(CHATGPT_APP_READY_DELAY_MS);
-  }
-}
-
-async function executeUsageFetch(window: BrowserWindow): Promise<FetchResult> {
-  const loadedUrl = window.webContents.getURL();
-  const currentUrl = new URL(loadedUrl);
-  if (currentUrl.hostname !== 'chatgpt.com') {
-    return {
-      ok: false,
-      status: 401,
-      text: `ChatGPT authentication required. Final page: ${sanitizedUrlForDebug(loadedUrl)}`,
-      finalUrl: sanitizedUrlForDebug(loadedUrl)
-    };
-  }
-
-  const script = `
-    (async () => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), ${REFRESH_TIMEOUT_MS});
-      try {
-        const readAuthSession = async () => {
-          try {
-            const sessionResponse = await window.fetch('/api/auth/session', {
-              method: 'GET',
-              credentials: 'include',
-              headers: { Accept: 'application/json' },
-              signal: controller.signal
-            });
-            const sessionText = await sessionResponse.text();
-            let sessionJson = null;
-            try {
-              sessionJson = JSON.parse(sessionText);
-            } catch {
-              sessionJson = null;
-            }
-            const accessToken =
-              sessionJson && typeof sessionJson.accessToken === 'string' && sessionJson.accessToken.length > 0
-                ? sessionJson.accessToken
-                : null;
-            return {
-              accessToken,
-              probe: {
-                sessionStatus: sessionResponse.status,
-                hasUser: Boolean(sessionJson && sessionJson.user),
-                hasAccessToken: Boolean(accessToken),
-                pageReadyState: document.readyState,
-                pageTitle: document.title,
-                path: location.pathname
-              }
-            };
-          } catch {
-            return {
-              accessToken: null,
-              probe: {
-                sessionStatus: null,
-                hasUser: false,
-                hasAccessToken: false,
-                pageReadyState: document.readyState,
-                pageTitle: document.title,
-                path: location.pathname
-              }
-            };
-          }
-        };
-
-        const auth = await readAuthSession();
-        const response = await window.fetch('/backend-api/wham/usage', {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            Accept: 'application/json',
-            ...(auth.accessToken ? { Authorization: 'Bearer ' + auth.accessToken } : {})
-          },
-          signal: controller.signal
-        });
-        const text = await response.text();
-        if (!response.ok) {
-          return {
-            ok: false,
-            status: response.status,
-            text: text.slice(0, 500) + ' Probe: ' + JSON.stringify(auth.probe),
-            finalUrl: location.origin + location.pathname,
-            authenticatedSession: Boolean(auth.probe.hasUser)
-          };
-        }
-        try {
-          return { ok: true, status: response.status, data: JSON.parse(text) };
-        } catch {
-          return {
-            ok: false,
-            status: response.status,
-            text: 'Invalid JSON response.',
-            parseError: true,
-            finalUrl: location.origin + location.pathname
-          };
-        }
-      } finally {
-        clearTimeout(timer);
-      }
-    })();
-  `;
-
-  return await withTimeout(window.webContents.executeJavaScript(script, true), REFRESH_TIMEOUT_MS);
-}
-
-async function probeChatGptAuth(window: BrowserWindow): Promise<AuthProbe> {
-  const script = `
-    (async () => {
-      try {
-        const response = await window.fetch('/api/auth/session', {
-          method: 'GET',
-          credentials: 'include',
-          headers: { Accept: 'application/json' }
-        });
-        const text = await response.text();
-        let json = null;
-        try {
-          json = JSON.parse(text);
-        } catch {
-          json = null;
-        }
-        return {
-          sessionStatus: response.status,
-          hasUser: Boolean(json && json.user),
-          hasAccessToken: Boolean(json && typeof json.accessToken === 'string' && json.accessToken.length > 0),
-          pageReadyState: document.readyState,
-          pageTitle: document.title,
-          path: location.pathname
-        };
-      } catch {
-        return {
-          sessionStatus: null,
-          hasUser: false,
-          hasAccessToken: false,
-          pageReadyState: document.readyState,
-          pageTitle: document.title,
-          path: location.pathname
-        };
-      }
-    })();
-  `;
-
-  return await window.webContents.executeJavaScript(script, true);
-}
-
-async function waitForChatGptSession(window: BrowserWindow): Promise<AuthProbe> {
-  const startedAt = Date.now();
-  let lastProbe = await probeChatGptAuth(window);
-
-  while (!lastProbe.hasUser && Date.now() - startedAt < CHATGPT_SESSION_WAIT_MS) {
-    await sleep(1_000);
-    lastProbe = await probeChatGptAuth(window);
-  }
-
-  return lastProbe;
-}
-
-function formatAuthProbe(probe: AuthProbe): string {
-  return JSON.stringify({
-    session_status: probe.sessionStatus,
-    has_user: probe.hasUser,
-    has_access_token: probe.hasAccessToken,
-    page_ready_state: probe.pageReadyState,
-    page_title: probe.pageTitle,
-    path: probe.path
-  });
-}
-
 function isNetworkFailure(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes('ERR_INTERNET_DISCONNECTED') || message.includes('ERR_NETWORK') || message.includes('ERR_NAME_NOT_RESOLVED');
@@ -627,7 +337,7 @@ async function refreshUsage(_source: 'startup' | 'timer' | 'manual'): Promise<vo
   setState({ isRefreshing: true });
 
   try {
-    const result = await fetchUsageInSession();
+    const result = await fetchUsageInSession(getUsageFetchWindow);
     if (!result.ok) {
       const status = result.parseError ? 'Parse error' : mapHttpStatusToAppStatus(result.status);
       const messagePrefix =
@@ -732,7 +442,7 @@ function openDebugWindow(): void {
 
   restrictNavigation(debugWindow, 'local');
   debugWindow.on('close', (event) => {
-    if (!app.isQuitting) {
+    if (!isQuitting) {
       event.preventDefault();
       debugWindow?.hide();
     }
@@ -807,7 +517,7 @@ if (!gotLock) {
   });
 
   app.on('before-quit', () => {
-    app.isQuitting = true;
+    isQuitting = true;
   });
 
   void app.whenReady().then(() => {
