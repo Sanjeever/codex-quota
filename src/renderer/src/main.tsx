@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { toDebugJson } from '../../shared/debug';
+import { formatUsageComparison } from '../../shared/summary';
 import { formatLastUpdated, formatPrimaryReset, formatWeeklyReset } from '../../shared/time';
 import type { CodexUsage, DebugState, UsageWindow } from '../../shared/types';
 import './styles.css';
@@ -9,6 +10,7 @@ function emptyState(): DebugState {
   return {
     status: 'Auth required',
     usage: null,
+    usageComparison: null,
     lastUpdatedAt: null,
     lastError: null,
     stale: false,
@@ -147,6 +149,7 @@ function App() {
           <Field label="showing_stale_data" value={String(state.stale)} />
           <Field label="refresh_interval_minutes" value={state.refreshIntervalMinutes} />
           <Field label="launch_at_login" value={String(state.launchAtLogin)} />
+          <Field label="usage_change" value={state.usageComparison ? formatUsageComparison(state.usageComparison) : 'None'} />
           <Field label="last_sanitized_error" value={state.lastError ? `${state.lastError.status}: ${state.lastError.message}` : 'None'} />
         </dl>
       </section>

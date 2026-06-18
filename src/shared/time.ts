@@ -37,6 +37,34 @@ export function formatWeeklyReset(resetAtUnixSeconds: number): string {
   return normalizeMidnightHour(dateTimeFormatter.format(new Date(resetAtUnixSeconds * 1000)));
 }
 
+export function formatRelativeReset(resetAtUnixSeconds: number, now = new Date()): string {
+  const resetMs = resetAtUnixSeconds * 1000;
+  const deltaMs = resetMs - now.getTime();
+
+  if (deltaMs <= 0) {
+    return 'passed';
+  }
+
+  const totalMinutes = Math.ceil(deltaMs / 60_000);
+  const days = Math.floor(totalMinutes / 1_440);
+  const hours = Math.floor((totalMinutes % 1_440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return hours > 0 ? `in ${days}d ${hours}h` : `in ${days}d`;
+  }
+
+  if (hours > 0) {
+    return minutes > 0 ? `in ${hours}h ${minutes}m` : `in ${hours}h`;
+  }
+
+  return `in ${minutes}m`;
+}
+
+export function formatResetWithRelative(resetAtUnixSeconds: number, absoluteText: string, now = new Date()): string {
+  return `${formatRelativeReset(resetAtUnixSeconds, now)} at ${absoluteText}`;
+}
+
 export function formatLastUpdated(isoString: string | null): string {
   if (!isoString) {
     return 'Never';

@@ -13,9 +13,10 @@ import {
 import Store from 'electron-store';
 import { join } from 'node:path';
 import { ZodError } from 'zod';
-import { classifyUsage, mapHttpStatusToAppStatus, parseUsageResponse } from '../shared/usage';
-import { formatLastUpdated, formatPrimaryReset, formatWeeklyReset } from '../shared/time';
+import { classifyUsage, compareUsage, mapHttpStatusToAppStatus, parseUsageResponse } from '../shared/usage';
+import { formatLastUpdated, formatPrimaryReset, formatResetWithRelative, formatWeeklyReset } from '../shared/time';
 import { toDebugJson } from '../shared/debug';
+import { buildUsageSummary, formatUsageComparison } from '../shared/summary';
 import type { AppStatus, CodexUsage, DebugState, SanitizedError } from '../shared/types';
 import { sleep, withTimeout } from './async';
 import { fetchUsageInSession } from './chatgpt';
@@ -65,6 +66,7 @@ const initialUsage = store.get('lastKnownUsage');
 let state: RuntimeState = {
   status: initialUsage ? classifyUsage(initialUsage) : 'Auth required',
   usage: initialUsage,
+  usageComparison: null,
   lastUpdatedAt: store.get('lastUpdatedAt'),
   lastError: null,
   stale: false,
@@ -116,6 +118,45 @@ function quotaLine(label: string, window: CodexUsage['rateLimit']['primaryWindow
   return `${label}: ${formatPercent(window.leftPercent)} left, ${formatPercent(window.usedPercent)} used, reset ${resetText}`;
 }
 
+function primaryResetText(window: CodexUsage['rateLimit']['primaryWindow']): string {
+  return formatResetWithRelative(window.resetAt, formatPrimaryReset(window.resetAt));
+}
+
+function weeklyResetText(window: CodexUsage['rateLimit']['secondaryWindow']): string {
+  return formatResetWithRelative(window.resetAt, formatWeeklyReset(window.resetAt));
+}
+
+function staleLabel(): string {
+  return state.lastUpdatedAt ? `Showing stale data from ${formatLastUpdated(state.lastUpdatedAt)}` : 'Showing stale data';
+}
+
+function statusLine(): string {
+  return `Status: ${state.status}${state.stale ? ' (showing stale data)' : ''}${state.isRefreshing ? ' (refreshing)' : ''}`;
+}
+
+function tooltipText(): string {
+  const lines = [APP_NAME, statusLine()];
+
+  if (state.usage) {
+    lines.push(
+      `5h: ${formatPercent(state.usage.rateLimit.primaryWindow.leftPercent)} left, reset ${primaryResetText(state.usage.rateLimit.primaryWindow)}`,
+      `Weekly: ${formatPercent(state.usage.rateLimit.secondaryWindow.leftPercent)} left, reset ${weeklyResetText(state.usage.rateLimit.secondaryWindow)}`
+    );
+  }
+
+  if (state.stale) {
+    lines.push(staleLabel());
+  }
+
+  lines.push(`Last updated: ${formatLastUpdated(state.lastUpdatedAt)}`);
+
+  if (!state.usage && state.lastError) {
+    lines.push(`Last error: ${state.lastError.status}`);
+  }
+
+  return lines.join('\n');
+}
+
 function setState(next: Partial<RuntimeState>): void {
   state = { ...state, ...next };
   rebuildTray();
@@ -137,7 +178,7 @@ function rebuildTray(): void {
   }
 
   tray.setImage(trayImage());
-  tray.setToolTip(`${shortTitle()} - ${state.status}`);
+  tray.setToolTip(tooltipText());
 
   if (process.platform === 'darwin') {
     tray.setTitle(shortTitle());
@@ -152,11 +193,11 @@ function rebuildTray(): void {
     ...(usage
       ? [
           {
-            label: quotaLine('5h quota', usage.rateLimit.primaryWindow, formatPrimaryReset(usage.rateLimit.primaryWindow.resetAt)),
+            label: quotaLine('5h quota', usage.rateLimit.primaryWindow, primaryResetText(usage.rateLimit.primaryWindow)),
             enabled: false
           },
           {
-            label: quotaLine('Weekly quota', usage.rateLimit.secondaryWindow, formatWeeklyReset(usage.rateLimit.secondaryWindow.resetAt)),
+            label: quotaLine('Weekly quota', usage.rateLimit.secondaryWindow, weeklyResetText(usage.rateLimit.secondaryWindow)),
             enabled: false
           },
           {
@@ -165,10 +206,12 @@ function rebuildTray(): void {
           }
         ]
       : [{ label: 'Quota: Unknown', enabled: false }]),
+    ...(usage && state.usageComparison && !state.stale ? [{ label: formatUsageComparison(state.usageComparison), enabled: false }] : []),
     { label: `Last updated: ${formatLastUpdated(state.lastUpdatedAt)}`, enabled: false },
-    ...(state.stale ? [{ label: 'Showing stale data', enabled: false }] : []),
+    ...(state.stale ? [{ label: staleLabel(), enabled: false }] : []),
     { type: 'separator' },
     { label: 'Refresh now', click: () => void refreshUsage('manual') },
+    { label: 'Copy summary', click: () => clipboard.writeText(buildUsageSummary(getDebugState())) },
     { label: 'Open analytics', click: () => openLoginWindow('user') },
     { label: 'Debug details', click: () => openDebugWindow() },
     { type: 'separator' },
@@ -351,6 +394,7 @@ async function refreshUsage(_source: 'startup' | 'timer' | 'manual'): Promise<vo
         status,
         lastError: safeError(status, message || `HTTP ${result.status}`, result.status),
         stale: Boolean(state.usage),
+        usageComparison: null,
         isRefreshing: false
       });
 
@@ -362,12 +406,14 @@ async function refreshUsage(_source: 'startup' | 'timer' | 'manual'): Promise<vo
     }
 
     const usage = parseUsageResponse(result.data);
+    const usageComparison = state.usage ? compareUsage(state.usage, usage) : null;
     const lastUpdatedAt = new Date().toISOString();
     store.set('lastKnownUsage', usage);
     store.set('lastUpdatedAt', lastUpdatedAt);
     setState({
       status: classifyUsage(usage),
       usage,
+      usageComparison,
       lastUpdatedAt,
       lastError: null,
       stale: false,
@@ -389,6 +435,7 @@ async function refreshUsage(_source: 'startup' | 'timer' | 'manual'): Promise<vo
       status,
       lastError: safeError(status, `${_source} refresh failed: ${error instanceof Error ? error.message : String(error)}`),
       stale: Boolean(state.usage),
+      usageComparison: null,
       isRefreshing: false
     });
     runPendingRefresh();
@@ -481,6 +528,7 @@ async function resetSession(): Promise<void> {
   setState({
     status: 'Auth required',
     usage: null,
+    usageComparison: null,
     lastUpdatedAt: null,
     lastError: safeError('Auth required', 'ChatGPT session was reset.'),
     stale: false

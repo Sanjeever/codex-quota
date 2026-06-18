@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
-import { classifyUsage, leftPercentFromUsed, mapHttpStatusToAppStatus, parseUsageResponse } from '../src/shared/usage';
-import { formatPrimaryReset, formatWeeklyReset } from '../src/shared/time';
+import { classifyUsage, compareUsage, leftPercentFromUsed, mapHttpStatusToAppStatus, parseUsageResponse } from '../src/shared/usage';
+import { formatPrimaryReset, formatRelativeReset, formatResetWithRelative, formatWeeklyReset } from '../src/shared/time';
+import { toDebugJson } from '../src/shared/debug';
+import { buildUsageSummary } from '../src/shared/summary';
+import type { DebugState } from '../src/shared/types';
 
 function response(overrides: Record<string, unknown> = {}) {
   return {
@@ -115,6 +118,24 @@ describe('quota calculations', () => {
     expect(classifyUsage(parseUsageResponse(response({ rate_limit: { ...response().rate_limit, secondary_window: { ...response().rate_limit.secondary_window, used_percent: 95 } } })))).toBe('Critical quota');
     expect(classifyUsage(parseUsageResponse(response({ rate_limit: { ...response().rate_limit, limit_reached: true } })))).toBe('Critical quota');
   });
+
+  it('compares current quota to the previous in-memory snapshot', () => {
+    const previous = parseUsageResponse(response());
+    const current = parseUsageResponse(
+      response({
+        rate_limit: {
+          ...response().rate_limit,
+          primary_window: { ...response().rate_limit.primary_window, used_percent: 20 },
+          secondary_window: { ...response().rate_limit.secondary_window, used_percent: 60 }
+        }
+      })
+    );
+
+    expect(compareUsage(previous, current)).toEqual({
+      primaryWindowLeftPercentDelta: -16,
+      secondaryWindowLeftPercentDelta: 4
+    });
+  });
 });
 
 describe('time formatting', () => {
@@ -136,6 +157,73 @@ describe('time formatting', () => {
     const resetAt = new Date(2026, 5, 18, 10, 22, 0).getTime() / 1000;
 
     expect(formatWeeklyReset(resetAt)).toBe('Jun 18, 10:22');
+  });
+
+  it('formats reset time with relative and absolute text', () => {
+    const now = new Date(2026, 5, 17, 8, 0, 0);
+    const resetAt = new Date(2026, 5, 17, 10, 14, 0).getTime() / 1000;
+
+    expect(formatRelativeReset(resetAt, now)).toBe('in 2h 14m');
+    expect(formatResetWithRelative(resetAt, '10:14', now)).toBe('in 2h 14m at 10:14');
+  });
+
+  it('formats longer and passed relative reset times', () => {
+    const now = new Date(2026, 5, 17, 8, 0, 0);
+    const resetAt = new Date(2026, 5, 20, 12, 0, 0).getTime() / 1000;
+    const passedAt = new Date(2026, 5, 17, 7, 59, 0).getTime() / 1000;
+
+    expect(formatRelativeReset(resetAt, now)).toBe('in 3d 4h');
+    expect(formatRelativeReset(passedAt, now)).toBe('passed');
+  });
+});
+
+describe('debug output', () => {
+  it('redacts account identifiers from copied debug JSON', () => {
+    const state: DebugState = {
+      status: 'OK',
+      usage: parseUsageResponse(response()),
+      usageComparison: null,
+      lastUpdatedAt: '2026-06-18T00:00:00.000Z',
+      lastError: null,
+      stale: false,
+      refreshIntervalMinutes: 5,
+      launchAtLogin: false,
+      isRefreshing: false
+    };
+
+    const debugJson = toDebugJson(state);
+
+    expect(debugJson).toContain('p***@example.com');
+    expect(debugJson).not.toContain('person@example.com');
+    expect(debugJson).not.toContain('user_123');
+    expect(debugJson).not.toContain('acct_123');
+  });
+
+  it('builds a copied summary without account identifiers', () => {
+    const usage = parseUsageResponse(response());
+    const state: DebugState = {
+      status: 'OK',
+      usage,
+      usageComparison: {
+        primaryWindowLeftPercentDelta: -12,
+        secondaryWindowLeftPercentDelta: 3
+      },
+      lastUpdatedAt: '2026-06-18T00:00:00.000Z',
+      lastError: null,
+      stale: false,
+      refreshIntervalMinutes: 5,
+      launchAtLogin: false,
+      isRefreshing: false
+    };
+
+    const summary = buildUsageSummary(state, new Date(2026, 5, 17, 8, 0, 0));
+
+    expect(summary).toContain('Codex Quota: OK');
+    expect(summary).toContain('5h: 96% left');
+    expect(summary).toContain('Change: 5h -12%, Weekly +3%');
+    expect(summary).not.toContain('person@example.com');
+    expect(summary).not.toContain('user_123');
+    expect(summary).not.toContain('acct_123');
   });
 });
 

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { AppStatus, CodexUsage } from './types';
+import type { AppStatus, CodexUsage, UsageComparison } from './types';
 
 const percentSchema = z.number().finite().min(0).max(100);
 const unixSecondsSchema = z.number().finite().int().nonnegative();
@@ -116,6 +116,13 @@ export function classifyUsage(usage: CodexUsage): AppStatus {
   }
 
   return 'OK';
+}
+
+export function compareUsage(previous: CodexUsage, current: CodexUsage): UsageComparison {
+  return {
+    primaryWindowLeftPercentDelta: current.rateLimit.primaryWindow.leftPercent - previous.rateLimit.primaryWindow.leftPercent,
+    secondaryWindowLeftPercentDelta: current.rateLimit.secondaryWindow.leftPercent - previous.rateLimit.secondaryWindow.leftPercent
+  };
 }
 
 export function mapHttpStatusToAppStatus(status: number): AppStatus {

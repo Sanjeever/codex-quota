@@ -42,9 +42,15 @@ export type SanitizedError = {
   occurredAt: string;
 };
 
+export type UsageComparison = {
+  primaryWindowLeftPercentDelta: number;
+  secondaryWindowLeftPercentDelta: number;
+};
+
 export type DebugState = {
   status: AppStatus;
   usage: CodexUsage | null;
+  usageComparison: UsageComparison | null;
   lastUpdatedAt: string | null;
   lastError: SanitizedError | null;
   stale: boolean;
