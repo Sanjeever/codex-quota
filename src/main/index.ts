@@ -14,7 +14,7 @@ import Store from 'electron-store';
 import { join } from 'node:path';
 import { ZodError } from 'zod';
 import { classifyUsage, compareUsage, mapHttpStatusToAppStatus, parseUsageResponse } from '../shared/usage';
-import { formatLastUpdated, formatPrimaryReset, formatResetWithRelative, formatWeeklyReset } from '../shared/time';
+import { formatCompactLastUpdated, formatLastUpdated, formatPrimaryReset, formatRelativeReset, formatResetWithRelative, formatWeeklyReset } from '../shared/time';
 import { toDebugJson } from '../shared/debug';
 import { buildUsageSummary, formatUsageComparison } from '../shared/summary';
 import type { AppStatus, CodexUsage, DebugState, SanitizedError } from '../shared/types';
@@ -126,6 +126,10 @@ function weeklyResetText(window: CodexUsage['rateLimit']['secondaryWindow']): st
   return formatResetWithRelative(window.resetAt, formatWeeklyReset(window.resetAt));
 }
 
+function compactResetText(window: CodexUsage['rateLimit']['primaryWindow']): string {
+  return formatRelativeReset(window.resetAt).replace(/^in /, '');
+}
+
 function staleLabel(): string {
   return state.lastUpdatedAt ? `Showing stale data from ${formatLastUpdated(state.lastUpdatedAt)}` : 'Showing stale data';
 }
@@ -135,6 +139,10 @@ function statusLine(): string {
 }
 
 function tooltipText(): string {
+  if (process.platform === 'win32') {
+    return windowsTooltipText();
+  }
+
   const lines = [APP_NAME, statusLine()];
 
   if (state.usage) {
@@ -154,6 +162,23 @@ function tooltipText(): string {
     lines.push(`Last error: ${state.lastError.status}`);
   }
 
+  return lines.join('\n');
+}
+
+function windowsTooltipText(): string {
+  const stateText = `${state.status}${state.stale ? ' stale' : ''}${state.isRefreshing ? ' refreshing' : ''}`;
+  const lines = [`${APP_NAME} ${stateText}`];
+
+  if (state.usage) {
+    lines.push(
+      `5h ${formatPercent(state.usage.rateLimit.primaryWindow.leftPercent)}, reset ${compactResetText(state.usage.rateLimit.primaryWindow)}`,
+      `W ${formatPercent(state.usage.rateLimit.secondaryWindow.leftPercent)}, reset ${compactResetText(state.usage.rateLimit.secondaryWindow)}`
+    );
+  } else if (state.lastError) {
+    lines.push(`Error ${state.lastError.status}`);
+  }
+
+  lines.push(`Updated ${formatCompactLastUpdated(state.lastUpdatedAt)}`);
   return lines.join('\n');
 }
 

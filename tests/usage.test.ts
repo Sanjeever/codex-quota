@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
 import { classifyUsage, compareUsage, leftPercentFromUsed, mapHttpStatusToAppStatus, parseUsageResponse } from '../src/shared/usage';
-import { formatPrimaryReset, formatRelativeReset, formatResetWithRelative, formatWeeklyReset } from '../src/shared/time';
+import { formatCompactLastUpdated, formatPrimaryReset, formatRelativeReset, formatResetWithRelative, formatWeeklyReset } from '../src/shared/time';
 import { toDebugJson } from '../src/shared/debug';
 import { buildUsageSummary } from '../src/shared/summary';
 import type { DebugState } from '../src/shared/types';
@@ -174,6 +174,12 @@ describe('time formatting', () => {
 
     expect(formatRelativeReset(resetAt, now)).toBe('in 3d 4h');
     expect(formatRelativeReset(passedAt, now)).toBe('passed');
+  });
+
+  it('formats compact last updated text for constrained tooltips', () => {
+    const updatedAt = new Date(2026, 5, 18, 9, 13, 36).toISOString();
+
+    expect(formatCompactLastUpdated(updatedAt)).toBe('Jun 18, 09:13');
   });
 });
 

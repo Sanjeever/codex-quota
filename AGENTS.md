@@ -79,6 +79,7 @@ The token is not persisted to `electron-store`, not displayed in Debug details, 
 - macOS menu bar title: `Codex 5h 96% | Weekly 36%`.
 - Windows uses tray icon and tooltip; quota details are in the tray menu.
 - Tray title stays stable; richer status details belong in the tooltip and tray menu.
+- Windows tray tooltip text is length-constrained. Keep Windows tooltip copy compact and put full detail in the tray menu or `Copy summary`.
 - Reset text should include both relative and absolute time, such as `in 2h 14m at 10:22`.
 - `Copy summary` provides sanitized shareable quota/status text from the tray menu.
 - Successful refreshes may show in-memory previous/current quota deltas for the current app run only.

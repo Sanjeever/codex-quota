@@ -12,6 +12,14 @@ const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
   hour12: false
 });
 
+const compactDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false
+});
+
 const sameDayFormatter = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
   month: 'numeric',
@@ -80,4 +88,12 @@ export function formatLastUpdated(isoString: string | null): string {
       hour12: false
     }).format(new Date(isoString))
   );
+}
+
+export function formatCompactLastUpdated(isoString: string | null): string {
+  if (!isoString) {
+    return 'Never';
+  }
+
+  return normalizeMidnightHour(compactDateTimeFormatter.format(new Date(isoString)));
 }
