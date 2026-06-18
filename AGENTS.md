@@ -27,10 +27,15 @@ pnpm dist:mac
 ## Important Files
 
 - `src/main/index.ts`: Electron main process, tray/menu, windows, refresh flow, session handling.
+- `src/main/chatgpt.ts`: ChatGPT page-runtime session probe and usage fetch.
+- `src/main/navigation.ts`: navigation restrictions for auth and local windows.
+- `src/main/constants.ts`: main-process constants and refresh interval types.
 - `src/preload/index.ts`: Minimal IPC API exposed to local renderer windows.
 - `src/renderer/src/main.tsx`: Debug details React window.
 - `src/shared/usage.ts`: zod parser, API response mapping, status classification.
 - `src/shared/time.ts`: fixed English locale reset time formatting.
+- `src/shared/summary.ts`: copied quota summary and in-memory usage change formatting.
+- `src/shared/debug.ts`: copied/debug JSON redaction helpers.
 - `tests/usage.test.ts`: parser/status/time unit tests.
 - `scripts/generate-icons.mjs`: generated original app/tray icon assets.
 - `build/icon-source/codex-quota.svg`: original vector icon source.
@@ -40,6 +45,8 @@ pnpm dist:mac
 
 - Do not ask users to paste cookies, bearer tokens, curl commands, API keys, or login credentials.
 - Do not show tokens, raw cookies, Authorization headers, or raw request headers in Debug details.
+- Do not include account identifiers in copied summary text.
+- `Copy JSON` must redact `userId` and `accountId`, and mask email addresses.
 - Do not write persistent log files containing request data.
 - ChatGPT login state lives in Electron session storage using `persist:codex-quota-chatgpt`.
 - `electron-store` is only for app settings and last successful sanitized usage snapshot.
@@ -70,13 +77,21 @@ The token is not persisted to `electron-store`, not displayed in Debug details, 
 ## Product Behavior
 
 - macOS menu bar title: `Codex 5h 96% | Weekly 36%`.
-- Windows uses tray icon and tooltip; full details are in the tray menu.
+- Windows uses tray icon and tooltip; quota details are in the tray menu.
+- Tray title stays stable; richer status details belong in the tooltip and tray menu.
+- Reset text should include both relative and absolute time, such as `in 2h 14m at 10:22`.
+- `Copy summary` provides sanitized shareable quota/status text from the tray menu.
+- Successful refreshes may show in-memory previous/current quota deltas for the current app run only.
+- Do not persist usage history or in-memory quota deltas unless explicitly requested.
+- Do not add system notifications; the app should not interrupt users.
+- Do not add dashboard or launcher behavior by default. Keep the product tray-first and low-interruption.
 - No floating desktop window.
 - Normal and error tray icons only.
 - Login/analytics window is visible only when authentication is needed or the user chooses `Open analytics`.
 - Auth-triggered login window auto-closes after a successful usage refresh.
 - User-triggered `Open analytics` window stays open.
 - Debug details is a local read-only window with `Copy JSON` and `Refresh now`.
+- Debug details may show local account identifiers in the window, but copied JSON must be redacted.
 - Closing windows does not quit the app; only `Quit` exits.
 - Use `app.requestSingleInstanceLock()`.
 
@@ -106,7 +121,7 @@ Status classification:
 
 - Unit tests must not call ChatGPT.
 - Tests must not require real credentials.
-- Keep tests focused on parser, mapping, status classification, and time formatting.
+- Keep tests focused on parser, mapping, status classification, time formatting, summary formatting, redaction, and in-memory comparison.
 - If the real endpoint shape changes, add a unit test for the new schema detail before loosening validation.
 
 ## Release Notes
