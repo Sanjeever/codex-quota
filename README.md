@@ -92,7 +92,7 @@ git push origin v1.2.0
 
 `pnpm release:bump <version>` updates all project version files together. Release commits should always use the exact format `chore(release): <version>`, for example `chore(release): 1.2.0`.
 
-The workflow installs pnpm with Node 20, installs Rust stable, runs `pnpm lint` and `pnpm test`, then uses the official Tauri GitHub Action to build and attach release artifacts for Windows and macOS.
+The release workflow installs pnpm with Node 20, installs Rust stable, restores Rust build cache without saving a new cache, then uses the official Tauri GitHub Action to build and attach release artifacts for Windows and macOS. Lint and tests run in the separate CI workflow on `main` and pull requests.
 
 ## Errors And Troubleshooting
 

@@ -46,6 +46,7 @@ pnpm release:bump <version>
 - `scripts/bump-version.mjs`: release version bump script for all version files.
 - `scripts/generate-icons.mjs`: generated original app/tray assets and Tauri icons.
 - `build/icon-source/codex-quota.svg`: original vector icon source.
+- `.github/workflows/ci.yml`: main/PR lint and test workflow.
 - `.github/workflows/build-release.yml`: tag-triggered Tauri release build.
 
 ## Security Boundaries
@@ -153,6 +154,7 @@ Status classification:
 - No auto-update.
 - No Apple notarization.
 - GitHub Actions release workflow runs only on `v*` tag push.
+- Release workflow builds and uploads artifacts only; lint and tests run in `.github/workflows/ci.yml` on `main` and pull requests.
 - Release matrix includes only `windows-latest` and `macos-latest`.
 - Release artifacts are Windows NSIS `.exe`, macOS `.dmg`, and macOS app bundle artifacts.
 - Use `pnpm release:bump <version>` to update every version file before a release.
