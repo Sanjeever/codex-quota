@@ -81,7 +81,11 @@ pub async fn fetch_usage_in_session(app: &AppHandle) -> Result<FetchResult, Stri
         });
     }
 
-    let probe = wait_for_chatgpt_session(&window).await;
+    let probe = if window.label() == windows::AUTH_LABEL {
+        wait_for_chatgpt_session(&window).await
+    } else {
+        probe_chatgpt_auth(&window).await
+    };
     if !probe.has_user {
         return Ok(FetchResult {
             ok: false,
@@ -102,13 +106,10 @@ pub async fn fetch_usage_in_session(app: &AppHandle) -> Result<FetchResult, Stri
 
 async fn get_usage_fetch_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     if let Some(window) = app.get_webview_window(windows::AUTH_LABEL) {
-        if window
-            .url()
-            .ok()
-            .and_then(|url| url.host_str().map(ToOwned::to_owned))
-            .as_deref()
-            == Some("chatgpt.com")
-        {
+        let is_analytics = window.url().ok().is_some_and(|url| {
+            url.host_str() == Some("chatgpt.com") && url.path() == ANALYTICS_PATH
+        });
+        if is_analytics {
             return Ok(window);
         }
     }

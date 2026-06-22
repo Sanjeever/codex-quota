@@ -7,7 +7,7 @@ use tauri::{
 use tauri_plugin_opener::OpenerExt;
 
 use crate::{
-    app_state::{ANALYTICS_URL, APP_NAME},
+    app_state::{ANALYTICS_PATH, ANALYTICS_URL, APP_NAME, AUTH_LOGIN_URL},
     store,
     AppData,
 };
@@ -78,7 +78,7 @@ pub fn open_auth_window(app: &AppHandle, reason: AuthOpenReason) -> Result<(), S
     WebviewWindowBuilder::new(
         app,
         AUTH_LABEL,
-        WebviewUrl::External(Url::parse(ANALYTICS_URL).map_err(|error| error.to_string())?),
+        WebviewUrl::External(auth_window_url(reason)?),
     )
     .title(format!("{APP_NAME} - ChatGPT"))
     .inner_size(1160.0, 820.0)
@@ -93,7 +93,9 @@ pub fn open_auth_window(app: &AppHandle, reason: AuthOpenReason) -> Result<(), S
         }
     })
     .on_page_load(move |window, payload| {
-        if payload.url().host_str() == Some("chatgpt.com") {
+        if payload.url().host_str() == Some("chatgpt.com")
+            && payload.url().path() == ANALYTICS_PATH
+        {
             let app_handle = app_for_page_load.clone();
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(Duration::from_millis(crate::app_state::CHATGPT_APP_READY_DELAY_MS)).await;
@@ -174,6 +176,14 @@ pub fn clear_tauri_session(app: &AppHandle) -> Result<(), String> {
 pub enum AuthOpenReason {
     Auth,
     User,
+}
+
+fn auth_window_url(reason: AuthOpenReason) -> Result<Url, String> {
+    let url = match reason {
+        AuthOpenReason::Auth => AUTH_LOGIN_URL,
+        AuthOpenReason::User => ANALYTICS_URL,
+    };
+    Url::parse(url).map_err(|error| error.to_string())
 }
 
 pub fn allowed_auth_url(url: &Url) -> bool {

@@ -63,6 +63,7 @@ pub fn run() {
 
             let handle = app.handle().clone();
             let stored = store::load(&handle);
+            let needs_login_on_startup = stored.last_known_usage.is_none();
             let runtime_state = app_state::RuntimeState::new(
                 stored.last_known_usage,
                 stored.last_updated_at,
@@ -77,9 +78,13 @@ pub fn run() {
 
             tray::create_tray(&handle)?;
             setup_refresh_timer(handle.clone());
-            tauri::async_runtime::spawn(async move {
-                refresh_usage(handle, "startup").await;
-            });
+            if needs_login_on_startup {
+                let _ = windows::open_auth_window(&handle, windows::AuthOpenReason::Auth);
+            } else {
+                tauri::async_runtime::spawn(async move {
+                    refresh_usage(handle, "startup").await;
+                });
+            }
 
             Ok(())
         })

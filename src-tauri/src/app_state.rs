@@ -5,6 +5,8 @@ use crate::usage::{AppStatus, CodexUsage, UsageComparison};
 pub const APP_NAME: &str = "Codex Quota";
 pub const ANALYTICS_URL: &str = "https://chatgpt.com/codex/cloud/settings/analytics";
 pub const ANALYTICS_PATH: &str = "/codex/cloud/settings/analytics";
+pub const AUTH_LOGIN_URL: &str =
+    "https://chatgpt.com/auth/login?next=%2Fcodex%2Fcloud%2Fsettings%2Fanalytics";
 pub const REFRESH_TIMEOUT_MS: u64 = 30_000;
 pub const CHATGPT_APP_READY_DELAY_MS: u64 = 4_000;
 pub const CHATGPT_SESSION_WAIT_MS: u64 = 20_000;
