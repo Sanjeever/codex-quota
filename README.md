@@ -4,6 +4,10 @@ Codex Quota is an unofficial, local Tauri v2 menu bar / system tray app for view
 
 This Tauri version is a new app runtime. It does not read, convert, or delete any old Electron data, including Electron sessions, cookies, `electron-store`, cache, last snapshots, or settings. The first Tauri launch requires signing in to ChatGPT again.
 
+## macOS Screenshot
+
+![Codex Quota macOS menu bar screenshot](screenshot.png)
+
 It does not use an API key. It does not ask you to paste cookies, bearer tokens, curl commands, or login credentials. The app opens ChatGPT in Tauri WebView windows and refreshes quota from that authenticated page runtime:
 
 ```js
