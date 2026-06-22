@@ -1,6 +1,5 @@
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
-use validator::ValidateEmail;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AppStatus {
@@ -89,7 +88,7 @@ struct RawUsageResponse {
     user_id: Option<String>,
     #[serde(default)]
     account_id: Option<String>,
-    #[serde(default, deserialize_with = "deserialize_optional_email")]
+    #[serde(default)]
     email: Option<String>,
     #[serde(default)]
     plan_type: Option<String>,
@@ -230,54 +229,13 @@ where
             .ok_or_else(|| serde::de::Error::custom("balance must be finite")),
         Some(Value::String(text)) => {
             let trimmed = text.trim();
-            if !is_numeric_string(trimmed) {
-                return Err(serde::de::Error::custom("balance string must be numeric"));
-            }
             trimmed
                 .parse::<f64>()
+                .ok()
+                .filter(|value| value.is_finite())
                 .map(Some)
-                .map_err(|_| serde::de::Error::custom("balance string must be numeric"))
+                .ok_or_else(|| serde::de::Error::custom("balance string must be finite numeric"))
         }
         _ => Err(serde::de::Error::custom("balance must be number, string, or null")),
     }
-}
-
-fn deserialize_optional_email<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let value = Option::<String>::deserialize(deserializer)?;
-    if let Some(email) = value.as_deref() {
-        if !email.validate_email() {
-            return Err(serde::de::Error::custom("email must be valid"));
-        }
-    }
-    Ok(value)
-}
-
-fn is_numeric_string(value: &str) -> bool {
-    if value.is_empty() {
-        return false;
-    }
-
-    let mut chars = value.chars().peekable();
-    if chars.peek() == Some(&'-') {
-        chars.next();
-    }
-
-    let mut seen_digit = false;
-    let mut seen_dot = false;
-    for ch in chars {
-        if ch.is_ascii_digit() {
-            seen_digit = true;
-            continue;
-        }
-        if ch == '.' && !seen_dot {
-            seen_dot = true;
-            continue;
-        }
-        return false;
-    }
-
-    seen_digit
 }

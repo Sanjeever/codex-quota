@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, Local, TimeZone};
+use chrono::{DateTime, Datelike, Local, TimeZone, Timelike};
 
 const MONTHS: [&str; 12] = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
@@ -112,24 +112,4 @@ fn format_date_time(date: DateTime<Local>) -> String {
 
 fn month_name(month: u32) -> &'static str {
     MONTHS[(month - 1) as usize]
-}
-
-trait TimeParts {
-    fn hour(&self) -> u32;
-    fn minute(&self) -> u32;
-    fn second(&self) -> u32;
-}
-
-impl TimeParts for DateTime<Local> {
-    fn hour(&self) -> u32 {
-        chrono::Timelike::hour(self)
-    }
-
-    fn minute(&self) -> u32 {
-        chrono::Timelike::minute(self)
-    }
-
-    fn second(&self) -> u32 {
-        chrono::Timelike::second(self)
-    }
 }

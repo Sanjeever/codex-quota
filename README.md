@@ -65,7 +65,7 @@ pnpm test
 pnpm build
 ```
 
-`pnpm test` runs Vitest for the renderer and Rust unit tests for the migrated parser/status/time/summary/redaction logic. Tests do not call ChatGPT and do not need real credentials.
+Generated icons are created by `pnpm dev`, `pnpm test`, and Tauri package builds before Rust needs them. `pnpm test` runs Rust unit tests for the parser/status/time/summary/redaction logic. Tests do not call ChatGPT and do not need real credentials.
 
 ## Package Installers
 

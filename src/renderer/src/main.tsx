@@ -1,19 +1,67 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { CodexUsage, DebugState, UsageWindow } from '../../shared/types';
 import './styles.css';
 
 const DEBUG_STATE_CHANGED = 'debug_state_changed';
+
+type AppStatus =
+  | 'OK'
+  | 'Low quota'
+  | 'Critical quota'
+  | 'Auth required'
+  | 'Request timeout'
+  | 'Offline'
+  | 'API error'
+  | 'Parse error';
+
+type UsageWindow = {
+  usedPercent: number;
+  leftPercent: number;
+  limitWindowSeconds: number;
+  resetAfterSeconds: number;
+  resetAt: number;
+  resetText: string;
+};
+
+type CodexUsage = {
+  userId?: string | null;
+  accountId?: string | null;
+  email?: string | null;
+  planType?: string | null;
+  rateLimit: {
+    allowed: boolean;
+    limitReached: boolean;
+    primaryWindow: UsageWindow;
+    secondaryWindow: UsageWindow;
+  };
+  credits: {
+    hasCredits: boolean;
+    unlimited: boolean;
+    balance: number | null;
+  };
+  rateLimitReachedType?: string | null;
+};
+
+type DebugState = {
+  status: AppStatus;
+  usage: CodexUsage | null;
+  usageComparisonText: string | null;
+  lastUpdatedText: string;
+  lastError: { status: AppStatus; message: string } | null;
+  stale: boolean;
+  refreshIntervalMinutes: number;
+  launchAtLogin: boolean;
+  isRefreshing: boolean;
+  redactedJson: string;
+};
 
 function emptyState(): DebugState {
   return {
     status: 'Auth required',
     usage: null,
-    usageComparison: null,
     usageComparisonText: null,
-    lastUpdatedAt: null,
     lastUpdatedText: 'Never',
     lastError: null,
     stale: false,
@@ -98,12 +146,12 @@ function App() {
     };
   }, []);
 
-  const statusClass = useMemo(() => {
+  const statusClass = (() => {
     if (state.status === 'OK') return 'status-ok';
     if (state.status === 'Low quota') return 'status-low';
     if (state.status === 'Critical quota') return 'status-critical';
     return 'status-error';
-  }, [state.status]);
+  })();
 
   async function refreshNow() {
     const next = await invoke<DebugState>('refresh_now');

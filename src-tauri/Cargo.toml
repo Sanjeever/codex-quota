@@ -31,4 +31,3 @@ tauri-plugin-single-instance = "2.4.2"
 thiserror = "2.0"
 tokio = { version = "1", features = ["sync", "time"] }
 url = "2.5"
-validator = "0.20.0"

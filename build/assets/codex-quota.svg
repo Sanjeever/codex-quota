@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Codex Quota app icon">
-  <rect width="256" height="256" rx="48" fill="#101412"/>
-  <path d="M58 78h140v100H58z" fill="none" stroke="#dbe7d2" stroke-width="14" stroke-linejoin="round"/>
-  <path d="M58 124h140" stroke="#dbe7d2" stroke-width="14" stroke-linecap="square"/>
-  <path d="M92 88v80M128 88v80" stroke="#5fd28a" stroke-width="14" stroke-linecap="square"/>
-  <path d="M164 88v80" stroke="#ff6f61" stroke-width="14" stroke-linecap="square"/>
-  <circle cx="198" cy="78" r="18" fill="#5fd28a"/>
-</svg>

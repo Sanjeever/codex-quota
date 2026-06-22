@@ -41,10 +41,9 @@ pnpm release:bump <version>
 - `src-tauri/src/debug.rs`: Debug details payload and copied JSON redaction.
 - `src-tauri/src/tests.rs`: parser/status/time/summary/redaction unit tests.
 - `src-tauri/capabilities/debug.json`: local Debug window command/event capability.
-- `src/renderer/src/main.tsx`: Debug details React window.
-- `src/shared/types.ts`: renderer-only TypeScript types.
+- `src/renderer/src/main.tsx`: Debug details React window and renderer-only TypeScript types.
 - `scripts/bump-version.mjs`: release version bump script for all version files.
-- `scripts/generate-icons.mjs`: generated original app/tray assets and Tauri icons.
+- `scripts/generate-icons.mjs`: generates ignored app/tray assets and Tauri icons.
 - `build/icon-source/codex-quota.svg`: original vector icon source.
 - `.github/workflows/ci.yml`: main/PR lint and test workflow.
 - `.github/workflows/build-release.yml`: tag-triggered Tauri release build.

@@ -11,14 +11,14 @@
   "scripts": {
     "generate:icons": "node scripts/generate-icons.mjs",
     "release:bump": "node scripts/bump-version.mjs",
-    "dev": "pnpm generate:icons && tauri dev",
+    "dev": "tauri dev",
     "tauri": "tauri",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests && cargo test --manifest-path src-tauri/Cargo.toml",
-    "build": "pnpm generate:icons && vite build",
-    "dist": "pnpm generate:icons && tauri build",
-    "dist:win": "pnpm generate:icons && tauri build",
-    "dist:mac": "pnpm generate:icons && tauri build"
+    "test": "pnpm generate:icons && cargo test --manifest-path src-tauri/Cargo.toml",
+    "build": "vite build",
+    "dist": "tauri build",
+    "dist:win": "tauri build",
+    "dist:mac": "tauri build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
@@ -40,7 +40,6 @@
     "eslint": "^9.29.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.34.1",
-    "vite": "^6.3.5",
-    "vitest": "^3.2.3"
+    "vite": "^6.3.5"
   }
 }

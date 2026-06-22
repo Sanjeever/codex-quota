@@ -3,6 +3,9 @@ out/
 dist/
 dist-types/
 release/
+build/assets/
+src-tauri/gen/
+src-tauri/icons/
 src-tauri/target/
 .electron-cache/
 *.log
