@@ -1,65 +1,66 @@
 # Codex Quota
 
-Codex Quota is an unofficial, local Tauri v2 menu bar / system tray app for viewing Codex usage quota from an already authenticated ChatGPT web session.
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-This Tauri version is a new app runtime. It does not read, convert, or delete any old Electron data, including Electron sessions, cookies, `electron-store`, cache, last snapshots, or settings. The first Tauri launch requires signing in to ChatGPT again.
+Unofficial local Tauri v2 tray app. Shows Codex quota from authenticated ChatGPT Web session.
 
-## macOS Screenshot
+License: [MIT](LICENSE).
+
+No API key. No pasted cookies. No bearer token input. No login credential capture.
+
+ChatGPT auth lives only inside Tauri WebView storage. First Tauri launch requires ChatGPT login again. Old Electron data ignored: sessions, cookies, `electron-store`, cache, snapshots, settings.
+
+Uses internal ChatGPT web endpoint `/backend-api/wham/usage`. Endpoint may change. If shape breaks, app reports API/parse error instead of guessing quota.
+
+## Screenshot
 
 ![Codex Quota macOS menu bar screenshot](screenshot.png)
 
-It does not use an API key. It does not ask you to paste cookies, bearer tokens, curl commands, or login credentials. The app opens ChatGPT in Tauri WebView windows and refreshes quota from that authenticated page runtime:
-
-```js
-fetch('/backend-api/wham/usage', {
-  method: 'GET',
-  credentials: 'include',
-  headers: {
-    Accept: 'application/json',
-    Authorization: 'Bearer <runtime ChatGPT access token>'
-  }
-})
-```
-
-The access token is read from the already authenticated ChatGPT page runtime for the current refresh request only. It is not returned to Rust, not shown in Debug details, not persisted, and not logged. This uses an internal ChatGPT web endpoint. That endpoint may change. If it changes, Codex Quota shows a clear API or parse error instead of guessing quota from the page.
-
 ## Features
 
-- macOS menu bar title like `Codex 5h 96% | Weekly 36%`.
-- Windows system tray icon and compact tooltip, with quota details in the tray menu.
-- Tray menu uses compact reset times; `Copy summary` includes both relative and absolute time, such as `in 2h 14m at 10:22`.
-- `Copy summary` copies a short sanitized quota summary from the tray menu.
-- Local Tauri WebView ChatGPT session, separate from any old Electron session.
-- Rust-side settings persistence for refresh interval, launch at login, last successful usage snapshot, and last update time.
-- Debug details window with local account details, quota details, sanitized JSON, and refresh controls.
-- Copied JSON redacts account identifiers and masks email addresses.
-- Single-instance behavior: launching a second instance opens/focuses Debug details.
-- No OpenAI or Codex official logos.
-- No auto-update, code signing, or Apple notarization.
+- macOS menu bar title: `Codex 5h 96% | Weekly 36%`.
+- Windows tray icon + compact tooltip. Details in tray menu.
+- `Copy summary`: short sanitized quota text.
+- Debug details: local account + quota details, sanitized JSON, refresh button.
+- Copied JSON redacts account IDs and masks email addresses.
+- Background refresh via hidden authenticated ChatGPT WebView.
+- Settings persisted: refresh interval, launch at login, last sanitized usage snapshot, last update time.
+- Single instance: second launch opens/focuses Debug details.
+- No OpenAI/Codex official logos.
+- No auto-update, signing, notarization, system notifications.
 
-## Install Dependencies
+## Requirements
+
+- Node.js >= 20
+- Rust stable
+- pnpm only
+
+## Install
 
 ```bash
 pnpm install
 ```
 
-Node.js 20 or newer and a Rust stable toolchain are required.
-
-## Run Locally
+## Run
 
 ```bash
 pnpm dev
 ```
 
-On first launch, Codex Quota creates the tray/menu and attempts a refresh. If the Tauri ChatGPT WebView session is not authenticated, it shows `Auth required` and opens:
+First run:
+
+1. App starts tray/menu.
+2. Refresh tries current Tauri WebView session.
+3. If auth missing, status becomes `Auth required`.
+4. App opens ChatGPT analytics:
 
 ```text
 https://chatgpt.com/codex/cloud/settings/analytics
 ```
 
-After login, use `Refresh` from the tray menu.
+After login, use tray `Refresh`.
 
-Successful refreshes compare the current quota with the previous in-memory snapshot for the current app run. The app may show a line like `Change: 5h -12%, Weekly +3%`. This comparison is not written to disk and resets when the app exits.
+Quota changes compare against previous in-memory snapshot for current app run only. Example: `Change: 5h -12%, Weekly +3%`. Not persisted.
 
 ## Build
 
@@ -69,9 +70,9 @@ pnpm test
 pnpm build
 ```
 
-Generated icons are created by `pnpm dev`, `pnpm test`, and Tauri package builds before Rust needs them. `pnpm test` runs Rust unit tests for the parser/status/time/summary/redaction logic. Tests do not call ChatGPT and do not need real credentials.
+`pnpm test` generates icons, then runs Rust unit tests. Tests never call ChatGPT and need no real credentials.
 
-## Package Installers
+## Package
 
 ```bash
 pnpm dist
@@ -79,11 +80,11 @@ pnpm dist:win
 pnpm dist:mac
 ```
 
-Build outputs are unsigned. Windows, macOS Gatekeeper, or other security tools may show warnings for local unsigned packages. Windows builds produce NSIS `.exe` installers. macOS builds produce `.dmg` and app bundle artifacts through Tauri.
+Artifacts unsigned. Windows/macOS may warn. Outputs: Windows NSIS `.exe`, macOS `.dmg`, macOS app bundle.
 
-## GitHub Release Builds
+## Release
 
-The release workflow runs only for version tags:
+Release workflow runs only on `v*` tags.
 
 ```bash
 pnpm release:bump 1.2.0
@@ -94,34 +95,34 @@ git push origin main
 git push origin v1.2.0
 ```
 
-`pnpm release:bump <version>` updates all project version files together. Release commits should always use the exact format `chore(release): <version>`, for example `chore(release): 1.2.0`.
+Release commit format must be `chore(release): <version>`.
 
-The release workflow installs pnpm with Node 20, installs Rust stable, restores Rust build cache without saving a new cache, then uses the official Tauri GitHub Action to build and attach release artifacts for Windows and macOS. Lint and tests run in the separate CI workflow on `main` and pull requests.
+GitHub Actions builds Windows + macOS artifacts. CI lint/tests run separately on `main` and PRs.
 
-## Errors And Troubleshooting
+## Troubleshooting
 
-- `Auth required`: the Tauri ChatGPT WebView session is missing, expired, or returned 401/403. Use `Analytics` or `Reset session`.
-- `Authenticated ChatGPT session, but usage endpoint returned unauthorized`: ChatGPT login is present, but the internal usage endpoint rejected the runtime-authenticated request. Codex Quota does not display raw tokens, raw cookies, or request headers in Debug details.
-- `Request timeout`: the refresh exceeded 30 seconds. The app waits until the next timer or manual refresh.
-- `Offline`: the WebView reported a network failure.
-- `API error`: the endpoint returned a non-2xx status other than auth cases.
-- `Parse error`: JSON parsing or schema validation failed. The internal endpoint may have changed.
+- `Auth required`: session missing/expired or 401/403. Use `Analytics` or `Reset session`.
+- `Request timeout`: refresh exceeded 30 seconds.
+- `Offline`: WebView network failure.
+- `API error`: non-2xx response, except auth cases.
+- `Parse error`: JSON/schema changed.
+- `Authenticated ChatGPT session, but usage endpoint returned unauthorized`: ChatGPT login exists, usage endpoint rejected runtime-authenticated request.
 
-When a refresh fails and a previous successful usage snapshot exists, the tray keeps showing that snapshot and marks it as stale in the tray menu and tooltip. The app never shows system notifications for errors.
+On refresh failure, tray keeps last successful snapshot if one exists and marks it stale.
 
-Never paste tokens, cookies, raw request headers, or secrets into this app or into bug reports. Prefer `Copy summary` for sharing current quota state. `Copy JSON` is also sanitized: email addresses are masked and account identifiers are redacted.
+Never paste tokens, cookies, raw headers, or secrets into bug reports. Prefer `Copy summary`. `Copy JSON` is sanitized.
 
-## Manual Testing
+## Manual Test
 
-1. Run `pnpm dev` or launch the packaged Tauri app.
-2. Confirm first Tauri startup requires signing in again and does not reuse old Electron login state.
-3. Confirm the auth window opens ChatGPT analytics.
-4. Sign in, run `Refresh`, and confirm quota refresh succeeds.
-5. Confirm the hidden ChatGPT WebView can refresh in the background after the auth window is closed.
-6. On macOS, confirm the menu bar title shows `Codex 5h ... | Weekly ...`.
-7. On Windows, confirm the tray tooltip/menu remain compact.
-8. Use `Copy summary` and confirm the copied text contains quota/status details but no account identifiers.
-9. Open Debug details and confirm local account identifiers are visible in the window, while `Copy JSON` redacts `userId`/`accountId` and masks email.
-10. Use `Reset session` and confirm it clears the Tauri WebView session/store and opens login again without touching Electron data.
-11. Launch a second instance and confirm Debug details opens/focuses.
-12. Close windows and confirm the app stays running; confirm only `Quit` exits.
+1. Run `pnpm dev` or packaged app.
+2. Confirm first Tauri startup requires fresh ChatGPT login.
+3. Confirm auth window opens ChatGPT analytics.
+4. Sign in, click `Refresh`, confirm quota loads.
+5. Close auth window, confirm hidden WebView can refresh.
+6. On macOS, confirm menu title shows `Codex 5h ... | Weekly ...`.
+7. On Windows, confirm tray tooltip/menu stay compact.
+8. Use `Copy summary`, confirm no account identifiers.
+9. Open Debug details. Confirm local IDs visible there, but `Copy JSON` redacts `userId`/`accountId` and masks email.
+10. Use `Reset session`, confirm Tauri session clears and login opens again. Electron data untouched.
+11. Launch second instance, confirm Debug details opens/focuses.
+12. Close windows, confirm app keeps running. Only `Quit` exits.
