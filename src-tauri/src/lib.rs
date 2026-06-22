@@ -58,6 +58,9 @@ pub fn run() {
             copy_json
         ])
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            app.set_dock_visibility(false);
+
             let handle = app.handle().clone();
             let stored = store::load(&handle);
             let runtime_state = app_state::RuntimeState::new(
