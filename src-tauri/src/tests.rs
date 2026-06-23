@@ -99,6 +99,44 @@ fn accepts_credit_balance_variants() {
 }
 
 #[test]
+fn accepts_object_typed_optional_string_fields() {
+    let plan_type_object = parse_usage_response(response(json!({
+        "plan_type": {"type": "pro"},
+        "rate_limit_reached_type": {"name": "monthly_cap"}
+    })))
+    .unwrap();
+    assert_eq!(plan_type_object.plan_type.as_deref(), Some("pro"));
+    assert_eq!(
+        plan_type_object.rate_limit_reached_type.as_deref(),
+        Some("monthly_cap")
+    );
+
+    let email_object = parse_usage_response(response(json!({
+        "email": {"value": "test@example.com"},
+        "user_id": {"id": "u_456"},
+        "account_id": {"id": "a_789"}
+    })))
+    .unwrap();
+    assert_eq!(email_object.email.as_deref(), Some("test@example.com"));
+    assert_eq!(email_object.user_id.as_deref(), Some("u_456"));
+    assert_eq!(email_object.account_id.as_deref(), Some("a_789"));
+
+    let null_fields = parse_usage_response(response(json!({
+        "plan_type": null,
+        "rate_limit_reached_type": null,
+        "email": null,
+        "user_id": null,
+        "account_id": null
+    })))
+    .unwrap();
+    assert_eq!(null_fields.plan_type, None);
+    assert_eq!(null_fields.rate_limit_reached_type, None);
+    assert_eq!(null_fields.email, None);
+    assert_eq!(null_fields.user_id, None);
+    assert_eq!(null_fields.account_id, None);
+}
+
+#[test]
 fn rejects_missing_or_invalid_required_fields() {
     assert!(parse_usage_response(response(json!({
         "rate_limit": {

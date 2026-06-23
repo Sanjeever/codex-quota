@@ -84,17 +84,17 @@ pub struct UsageComparison {
 
 #[derive(Deserialize)]
 struct RawUsageResponse {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_str")]
     user_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_str")]
     account_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_str")]
     email: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_str")]
     plan_type: Option<String>,
     rate_limit: RawRateLimit,
     credits: RawCredits,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_str")]
     rate_limit_reached_type: Option<String>,
 }
 
@@ -189,6 +189,26 @@ pub fn compare_usage(previous: &CodexUsage, current: &CodexUsage) -> UsageCompar
         secondary_window_left_percent_delta: current.rate_limit.secondary_window.left_percent
             - previous.rate_limit.secondary_window.left_percent,
     }
+}
+
+fn deserialize_optional_str<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<Value>::deserialize(deserializer)?;
+    Ok(match value {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(s),
+        Some(Value::Object(map)) => {
+            for key in &["type", "planType", "name", "value", "id"] {
+                if let Some(Value::String(s)) = map.get(*key) {
+                    return Ok(Some(s.clone()));
+                }
+            }
+            Some(serde_json::to_string(&map).unwrap_or_default())
+        }
+        Some(other) => Some(other.to_string()),
+    })
 }
 
 pub fn map_http_status_to_app_status(status: u16, authenticated_session: bool) -> AppStatus {
