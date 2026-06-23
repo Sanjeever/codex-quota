@@ -1,6 +1,6 @@
 [package]
 name = "codex-quota"
-version = "1.1.8"
+version = "1.1.9"
 description = "Unofficial local Tauri tray app for viewing Codex quota from an authenticated ChatGPT web session."
 authors = ["Sanjeever"]
 license = "MIT"
