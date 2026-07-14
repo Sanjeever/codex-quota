@@ -2,6 +2,10 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+> [!IMPORTANT]
+> Codex Quota 已归档，不再维护。如需安装类似工具，请改用
+> [CodexBar](https://github.com/steipete/codexbar)。
+
 非官方本地 Tauri v2 托盘应用。通过已登录的 ChatGPT Web 会话查看 Codex quota。
 
 协议：[MIT](LICENSE)。
