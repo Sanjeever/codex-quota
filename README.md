@@ -2,6 +2,10 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+> [!IMPORTANT]
+> Codex Quota is archived and no longer maintained. For new installations, use
+> [CodexBar](https://github.com/steipete/codexbar) instead.
+
 Unofficial local Tauri v2 tray app. Shows Codex quota from authenticated ChatGPT Web session.
 
 License: [MIT](LICENSE).
